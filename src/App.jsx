@@ -55,12 +55,12 @@ const formatDate = (dateString) => {
   return date.toLocaleDateString('en-HK', { year: 'numeric', month: 'short', day: 'numeric' });
 };
 
-const msToMins = (ms) => {
-  if (!ms || isNaN(ms) || ms < 0) return 0;
-  return Math.floor(ms / 60000);
+const getWaitTimeMinutes = (createdAt, currentTime) => {
+  const diffMs = currentTime - new Date(createdAt);
+  return Math.max(0, Math.floor(diffMs / 60000));
 };
 
-// --- SUB-COMPONENTS ---
+// --- SUB-COMPONENTS & DIALOGS ---
 const MemoDialog = ({ memoModal, onClose, onSave }) => {
   const [text, setText] = useState(memoModal.text);
   
@@ -193,7 +193,418 @@ const DeleteDialog = ({ deleteModal, onClose, onConfirm }) => {
   );
 };
 
-// --- MAIN APP COMPONENT ---
+// --- VIEW COMPONENTS (Extracted to maintain state) ---
+
+const HomeView = ({ setCurrentView, isStaffAuthenticated }) => (
+  <div className="flex flex-col items-center justify-center min-h-[calc(100vh-64px)] bg-gray-50 p-4 md:p-8 print:hidden">
+    <div className="max-w-5xl w-full text-center space-y-6 md:space-y-8">
+      <h1 className="text-3xl md:text-5xl font-bold text-gray-800 tracking-tight leading-tight">{PHARMACY_NAME}</h1>
+      <h2 className="text-xl md:text-3xl text-gray-600 font-medium">{PHARMACY_NAME_ZH}</h2>
+      <div className="flex items-center justify-center gap-2 mt-4 text-green-700 bg-green-100 px-4 py-2 rounded-full w-max mx-auto shadow-sm border border-green-200">
+        <Database className="w-4 h-4 md:w-5 md:h-5" /> <span className="text-sm md:text-base font-bold">Cloud Sync Active</span>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mt-8 md:mt-12">
+        <button onClick={() => setCurrentView('kiosk')} className="bg-white p-6 md:p-8 rounded-2xl shadow hover:shadow-lg transition-all group flex flex-col items-center cursor-pointer border border-gray-100">
+          <div className="bg-blue-100 p-4 md:p-5 rounded-full mb-4 group-hover:scale-110 transition-transform"><Printer className="w-8 h-8 md:w-10 md:h-10 text-blue-600" /></div>
+          <h3 className="text-lg md:text-xl font-bold text-gray-800">Ticketing Kiosk</h3>
+          <p className="text-gray-500 mt-2 text-sm">Customer ticket machine</p>
+        </button>
+        <button onClick={() => setCurrentView('monitor')} className="bg-white p-6 md:p-8 rounded-2xl shadow hover:shadow-lg transition-all group flex flex-col items-center cursor-pointer border border-gray-100">
+          <div className="bg-indigo-100 p-4 md:p-5 rounded-full mb-4 group-hover:scale-110 transition-transform"><Monitor className="w-8 h-8 md:w-10 md:h-10 text-indigo-600" /></div>
+          <h3 className="text-lg md:text-xl font-bold text-gray-800">TV Monitor</h3>
+          <p className="text-gray-500 mt-2 text-sm">Public queue display</p>
+        </button>
+        <button onClick={() => { if(isStaffAuthenticated) setCurrentView('panel'); else setCurrentView('login'); }} className="bg-white p-6 md:p-8 rounded-2xl shadow hover:shadow-lg transition-all group flex flex-col items-center cursor-pointer border border-gray-100">
+          <div className="bg-teal-100 p-4 md:p-5 rounded-full mb-4 group-hover:scale-110 transition-transform"><UserCheck className="w-8 h-8 md:w-10 md:h-10 text-teal-600" /></div>
+          <h3 className="text-lg md:text-xl font-bold text-gray-800">Pharmacist Panel</h3>
+          <p className="text-gray-500 mt-2 text-sm">Staff station control</p>
+        </button>
+        <button onClick={() => { if(isStaffAuthenticated) setCurrentView('reports'); else setCurrentView('login'); }} className="bg-white p-6 md:p-8 rounded-2xl shadow hover:shadow-lg transition-all group flex flex-col items-center cursor-pointer border border-gray-100">
+          <div className="bg-purple-100 p-4 md:p-5 rounded-full mb-4 group-hover:scale-110 transition-transform"><BarChart3 className="w-8 h-8 md:w-10 md:h-10 text-purple-600" /></div>
+          <h3 className="text-lg md:text-xl font-bold text-gray-800">Backstage Data</h3>
+          <p className="text-gray-500 mt-2 text-sm">Reports & Analytics</p>
+        </button>
+      </div>
+    </div>
+  </div>
+);
+
+const LoginView = ({ setCurrentView, setIsStaffAuthenticated }) => {
+  const [pin, setPin] = useState("");
+  const [error, setError] = useState(false);
+  const handleLogin = () => {
+    if (pin === STAFF_PIN) { setIsStaffAuthenticated(true); setCurrentView('panel'); }
+    else { setError(true); setPin(""); }
+  };
+  return (
+    <div className="min-h-[calc(100vh-64px)] bg-gray-100 flex items-center justify-center p-4 md:p-6 print:hidden">
+      <div className="bg-white p-8 md:p-10 rounded-2xl shadow-xl w-full max-w-sm text-center">
+        <div className="bg-slate-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6"><Lock className="w-8 h-8 text-slate-600" /></div>
+        <h2 className="text-2xl md:text-3xl font-bold text-gray-800 mb-2">Staff Only</h2>
+        <p className="text-gray-500 mb-8">Enter the security PIN</p>
+        <input type="password" value={pin} onChange={(e) => { setError(false); setPin(e.target.value); }} onKeyDown={(e) => e.key === 'Enter' && handleLogin()} className={`w-full text-center text-3xl tracking-[1em] border-2 rounded-xl p-4 mb-4 outline-none ${error ? 'border-red-500 bg-red-50' : 'border-gray-200 focus:border-blue-500'}`} placeholder="****" maxLength={4} autoFocus />
+        <button onClick={handleLogin} className="w-full bg-blue-600 text-white font-bold py-4 rounded-xl hover:bg-blue-700 transition-all text-lg shadow-md active:scale-95">Unlock Access</button>
+        <button onClick={() => setCurrentView('home')} className="mt-6 text-gray-400 font-medium w-full py-2">Cancel</button>
+      </div>
+    </div>
+  );
+};
+
+const KioskView = ({ generateTicket }) => {
+  const [printedTicket, setPrintedTicket] = useState(null);
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  useEffect(() => {
+    if (printedTicket) {
+      const timer = setTimeout(() => {
+        window.print();
+      }, 500); 
+      return () => clearTimeout(timer);
+    }
+  }, [printedTicket]);
+
+  const handlePrint = async (serviceId) => {
+    if (isGenerating) return;
+    setIsGenerating(true);
+    
+    try {
+      const ticket = await generateTicket(serviceId);
+      if (ticket) {
+        setPrintedTicket(ticket);
+      }
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  return (
+    <>
+      <div className="min-h-[calc(100vh-64px)] bg-gray-100 flex flex-col items-center justify-center p-4 md:p-6 print:hidden">
+        <div className="max-w-3xl w-full bg-white rounded-3xl shadow-2xl overflow-hidden relative">
+          <div className="bg-blue-900 p-6 md:p-8 text-center text-white">
+            <h1 className="text-2xl md:text-4xl font-bold mb-2">Welcome 歡迎光臨</h1>
+            <p className="text-blue-100 text-sm md:text-lg">Please select a service to get a ticket</p>
+            <p className="text-blue-100 text-sm md:text-lg">請選擇服務以領取籌號</p>
+          </div>
+          <div className="p-4 md:p-8 space-y-4 md:space-y-6">
+            {SERVICES.map(service => {
+              const Icon = service.icon;
+              return (
+                <button key={service.id} onClick={() => handlePrint(service.id)} disabled={isGenerating} className={`w-full ${service.color} ${service.hover} text-white p-5 md:p-6 rounded-2xl shadow-md transition-all active:scale-95 flex items-center justify-between disabled:opacity-70`}>
+                  <div className="flex items-center gap-4 md:gap-6 text-left">
+                    <div className="bg-white/20 p-3 md:p-4 rounded-full"><Icon className="w-8 h-8 md:w-10 md:h-10" /></div>
+                    <div>
+                      <h2 className="text-xl md:text-3xl font-bold">{service.name}</h2>
+                      <h3 className="text-lg md:text-2xl mt-1 opacity-90">{service.nameZh}</h3>
+                    </div>
+                  </div>
+                  <ChevronRight className="w-8 h-8 md:w-10 md:h-10 opacity-50" />
+                </button>
+              );
+            })}
+          </div>
+          
+          {printedTicket && (
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+              <div className="bg-white p-8 rounded-3xl shadow-2xl w-full max-w-sm text-center border-t-8 border-blue-600 flex flex-col items-center animate-in zoom-in-95 duration-200">
+                <h2 className="text-sm font-bold text-gray-500 uppercase tracking-widest mb-1">Your Ticket Number</h2>
+                <h2 className="text-sm font-bold text-gray-500 uppercase tracking-widest mb-2">您的籌號</h2>
+                <div className="text-7xl font-black text-blue-600 my-4 tracking-tighter">{printedTicket.id}</div>
+                
+                <button onClick={() => window.print()} className="mt-2 bg-blue-50 text-blue-700 font-bold py-3 px-6 rounded-full flex items-center justify-center gap-2 hover:bg-blue-100 transition-colors w-full border border-blue-200 mb-6 shadow-sm active:scale-95">
+                  <Printer className="w-5 h-5" /> Click to Print Ticket
+                </button>
+                
+                <button onClick={() => setPrintedTicket(null)} className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold w-full py-4 rounded-xl transition-colors">Close 關閉</button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {printedTicket && (
+        <div className="hidden print:block text-black text-center w-full max-w-[80mm] mx-auto p-4 font-sans bg-white z-[9999] m-0">
+          <div className="border-b-2 border-black pb-4 mb-4">
+            <h1 className="text-base font-bold leading-tight">{PHARMACY_NAME}</h1>
+            <h2 className="text-lg font-bold mt-1">{PHARMACY_NAME_ZH}</h2>
+          </div>
+          <div className="mb-2">
+            <div className="text-xs uppercase font-bold tracking-widest text-gray-600">{printedTicket.serviceName}</div>
+            <div className="text-sm font-bold">{printedTicket.serviceNameZh}</div>
+          </div>
+          <div className="border-y-4 border-black py-6 my-4">
+            <div className="text-sm font-bold uppercase mb-1">Your Ticket Number 您的籌號</div>
+            <div className="text-[6rem] font-black leading-none">{printedTicket.id}</div>
+          </div>
+          <div className="text-sm font-bold">{formatDate(printedTicket.createdAt)}</div>
+          <div className="text-sm mb-6">{formatTime(printedTicket.createdAt)}</div>
+          <div className="border-t border-dashed border-gray-400 pt-4 text-xs italic">
+            Please wait for your number.<br/>請耐心等候叫號。
+          </div>
+        </div>
+      )}
+    </>
+  );
+};
+
+const MonitorView = ({ tickets, waitingTickets, lastCallEvent }) => {
+  const currentTicket = tickets.find(t => t.id === lastCallEvent.id);
+  const [flash, setFlash] = useState(false);
+  const [isAudioEnabled, setIsAudioEnabled] = useState(false);
+  const [showOverlay, setShowOverlay] = useState(true);
+  
+  const ticketsRef = useRef(tickets);
+  useEffect(() => { ticketsRef.current = tickets; }, [tickets]);
+
+  const handleStartMonitor = () => {
+    if (window.speechSynthesis) {
+      const initVoice = new SpeechSynthesisUtterance('Monitor active');
+      initVoice.volume = 0; 
+      window.speechSynthesis.speak(initVoice);
+    }
+    setIsAudioEnabled(true);
+    setShowOverlay(false);
+  };
+
+  useEffect(() => {
+    if (lastCallEvent.time && lastCallEvent.id && !showOverlay) {
+      setFlash(true);
+      const timer = setTimeout(() => setFlash(false), 3000);
+
+      if (isAudioEnabled && window.speechSynthesis) {
+        const t = ticketsRef.current.find(t => t.id === lastCallEvent.id);
+        if (t && t.calledByCounter) {
+          
+          window.speechSynthesis.cancel();
+
+          setTimeout(() => {
+            const formattedTicket = t.id.split('').join(' '); 
+            
+            const msgEn = new SpeechSynthesisUtterance(`Ticket ${formattedTicket}, please proceed to ${t.calledByCounter}.`);
+            msgEn.lang = 'en-US';
+            msgEn.rate = 0.85;
+
+            let zhCounter = t.calledByCounter;
+            if (zhCounter.includes('Counter')) zhCounter = zhCounter.replace('Counter ', '') + '號櫃位';
+            if (zhCounter.includes('Room')) zhCounter = zhCounter.replace('Room ', '') + '號房間';
+            
+            const msgZh = new SpeechSynthesisUtterance(`請 ${formattedTicket} 號客, 到 ${zhCounter}。`);
+            msgZh.lang = 'zh-HK';
+            msgZh.rate = 0.85;
+
+            window.speechSynthesis.speak(msgEn);
+            window.speechSynthesis.speak(msgZh);
+          }, 100);
+        }
+      }
+      return () => clearTimeout(timer);
+    }
+  }, [lastCallEvent.time, isAudioEnabled, showOverlay]);
+
+  if (showOverlay) {
+    return (
+      <div className="h-[calc(100vh-64px)] bg-slate-900 flex flex-col items-center justify-center p-6 print:hidden">
+        <div className="max-w-lg w-full bg-slate-800 p-10 rounded-3xl shadow-2xl text-center border border-slate-700">
+          <Volume2 className="w-20 h-20 text-blue-500 mx-auto mb-6 animate-pulse" />
+          <h2 className="text-3xl font-bold text-white mb-4">Start Monitor</h2>
+          <p className="text-slate-400 mb-8 text-lg">Chrome requires you to click once before it allows audio to play.</p>
+          <button onClick={handleStartMonitor} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-6 rounded-2xl text-xl shadow-[0_0_30px_rgba(37,99,235,0.4)] transition-all active:scale-95 flex items-center justify-center gap-3">
+            <Play className="w-6 h-6 fill-current" /> Enable Sound & Start
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-[calc(100vh-64px)] bg-slate-900 text-white flex flex-col lg:flex-row overflow-hidden print:hidden">
+      <div className="w-full lg:w-2/3 p-8 md:p-12 flex flex-col justify-center items-center border-b lg:border-b-0 lg:border-r border-slate-700 relative">
+        <div className="lg:absolute top-8 left-12 mb-8 lg:mb-0 w-full lg:w-auto flex justify-between lg:block">
+          <h2 className="text-xl md:text-2xl font-bold text-slate-400 flex items-center gap-3 justify-center"><Activity className="w-6 h-6 md:w-8 md:h-8 text-blue-500" />{PHARMACY_NAME}</h2>
+        </div>
+        <div className="mt-10 lg:mt-0">
+          <h1 className="text-3xl md:text-5xl font-medium text-slate-400 uppercase tracking-widest text-center">Now Calling 現在叫號</h1>
+          <div className={`transition-all duration-300 text-center ${flash ? 'scale-110 text-yellow-400 drop-shadow-[0_0_30px_rgba(250,204,21,0.5)]' : 'text-white'}`}>
+            <div className="text-[8rem] md:text-[15rem] lg:text-[18rem] font-black leading-none my-4 md:my-8">{currentTicket ? currentTicket.id : '---'}</div>
+          </div>
+          {currentTicket && currentTicket.calledByCounter && (
+            <div className="text-center animate-in fade-in slide-in-from-bottom-4">
+              <div className="inline-block bg-slate-800 text-yellow-400 px-8 py-3 md:px-12 md:py-4 rounded-full text-2xl md:text-4xl font-bold border border-slate-700">
+                {currentTicket.calledByCounter} {currentTicket.calledByCounter.includes('Counter') ? '櫃位' : '房間'}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+      <div className="w-full lg:w-1/3 bg-slate-800 p-6 md:p-8 flex flex-col">
+        <h2 className="text-2xl md:text-3xl font-bold text-slate-300 mb-6 border-b border-slate-700 pb-4">Next in Line</h2>
+        <div className="space-y-4 overflow-y-auto flex-1">
+          {[...waitingTickets].sort((a,b) => new Date(a.createdAt) - new Date(b.createdAt)).slice(0, 8).map((ticket) => (
+            <div key={ticket.id} className="flex justify-between items-center bg-slate-700/50 p-4 md:p-6 rounded-xl border border-slate-600/50">
+              <span className="text-3xl md:text-4xl font-bold text-slate-200">{ticket.id}</span>
+              <span className="text-slate-400 text-base md:text-lg truncate pl-4">{ticket.serviceNameZh}</span>
+            </div>
+          ))}
+          {waitingTickets.length === 0 && <div className="text-center text-slate-500 mt-10 text-lg">No tickets waiting</div>}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const PanelView = ({ 
+  panelRoom, setPanelRoom, waitingTickets, activeTickets, 
+  queueSortBy, setQueueSortBy, updateTicketStatus, 
+  setMemoModal, setReturnModal, setDeleteModal, 
+  currentTime, setIsStaffAuthenticated, setCurrentView 
+}) => {
+  if (!panelRoom) return (
+    <div className="min-h-[calc(100vh-64px)] bg-gray-100 flex items-center justify-center p-4 print:hidden">
+      <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md text-center">
+        <h2 className="text-2xl font-bold text-gray-800 mb-8">Pharmacist Panel</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {STATIONS.map(station => (
+            <button key={station} onClick={() => setPanelRoom(station)} className="p-4 border-2 rounded-xl font-bold text-lg text-gray-700 hover:border-teal-500 hover:bg-teal-50 hover:text-teal-700 transition-all shadow-sm active:scale-95">{station}</button>
+          ))}
+        </div>
+        <button onClick={() => { setIsStaffAuthenticated(false); setCurrentView('home'); }} className="mt-8 text-sm font-medium text-gray-400 hover:text-red-500 flex items-center justify-center gap-2 mx-auto px-4 py-2"><Lock className="w-4 h-4" /> Log Out System</button>
+      </div>
+    </div>
+  );
+
+  const sortedWaitingTickets = [...waitingTickets].sort((a, b) => {
+    if (queueSortBy === 'number') return a.id.localeCompare(b.id);
+    return new Date(a.createdAt) - new Date(b.createdAt);
+  });
+
+  return (
+    <div className="h-auto lg:h-[calc(100vh-64px)] bg-gray-100 p-4 lg:p-6 flex flex-col lg:flex-row gap-4 lg:gap-6 overflow-y-auto lg:overflow-hidden print:hidden">
+      <div className="flex-1 flex flex-col gap-4 lg:gap-6 lg:overflow-hidden">
+        
+        {/* Top Control Panel */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 lg:p-6 shrink-0">
+          <div className="flex justify-between items-center mb-4 lg:mb-6 border-b border-gray-100 pb-4">
+            <h2 className="text-xl lg:text-2xl font-bold text-teal-700 flex items-center gap-2"><UserCheck className="w-6 h-6"/> {panelRoom}</h2>
+            <button onClick={() => setPanelRoom(null)} className="text-gray-500 hover:text-red-600 text-sm font-medium flex items-center gap-1 bg-gray-50 px-3 py-2 rounded-lg"><LogOut className="w-4 h-4"/> Switch</button>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 lg:gap-4">
+            {SERVICES.map(service => {
+              const next = [...waitingTickets].sort((a,b)=>new Date(a.createdAt)-new Date(b.createdAt)).find(t=>t.type===service.id);
+              return (
+                <button key={service.id} onClick={() => next && updateTicketStatus(next.id, 'calling', panelRoom)} disabled={!next} className={`p-4 rounded-xl border-2 text-left transition-all ${next ? 'border-blue-300 bg-blue-50 hover:bg-blue-100 shadow-sm active:scale-95 cursor-pointer' : 'border-gray-100 bg-gray-50 opacity-50 cursor-not-allowed'}`}>
+                  <div className="text-xs font-bold text-blue-600 uppercase tracking-wider mb-1 truncate">{service.name}</div>
+                  <div className="text-3xl font-black text-gray-900">{next ? next.id : '--'}</div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Active Tickets List */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 flex-1 min-h-[300px] lg:min-h-0 flex flex-col overflow-hidden">
+          <div className="p-4 border-b border-gray-200 bg-gray-50 font-bold text-gray-700 flex items-center gap-2"><Activity className="w-5 h-5 text-green-500"/> Serving at {panelRoom}</div>
+          <div className="p-4 overflow-y-auto space-y-3 lg:space-y-4 flex-1">
+            {activeTickets.filter(t => t.calledByCounter === panelRoom).length === 0 ? (
+              <div className="text-center text-gray-400 py-10 italic">No tickets currently being served.</div>
+            ) : (
+              activeTickets.filter(t => t.calledByCounter === panelRoom).map(ticket => (
+                <div key={ticket.id} className={`p-4 rounded-xl border-l-4 shadow-sm flex flex-col xl:flex-row gap-4 xl:gap-0 justify-between items-start xl:items-center ${ticket.status === 'calling' ? 'bg-yellow-50 border-yellow-400' : 'bg-green-50 border-green-500'}`}>
+                  <div className="w-full xl:w-auto">
+                    <div className="flex items-center justify-between xl:justify-start gap-4">
+                      <div className="text-3xl font-black text-gray-900">{ticket.id}</div>
+                      {/* Mobile Buttons for Active Tickets */}
+                      <div className="flex gap-2 xl:hidden">
+                        <button onClick={() => setMemoModal({ticketId: ticket.id, text: ticket.memo || ''})} className="p-2 bg-white rounded-lg border border-gray-200 text-gray-500 hover:text-blue-600 shadow-sm"><Edit3 className="w-5 h-5" /></button>
+                        <button onClick={() => setReturnModal(ticket.id)} className="p-2 bg-white rounded-lg border border-gray-200 text-orange-500 hover:text-orange-600 shadow-sm"><RotateCcw className="w-5 h-5" /></button>
+                      </div>
+                    </div>
+                    <div className="text-sm text-gray-600 font-medium">{ticket.serviceNameZh}</div>
+                    {ticket.memo && <div className="mt-2 text-blue-700 bg-white px-3 py-1.5 rounded-lg text-sm border border-blue-200 shadow-sm flex items-start gap-2"><FileEdit className="w-4 h-4 shrink-0 mt-0.5" /> <span className="break-words">{ticket.memo}</span></div>}
+                  </div>
+                  <div className="flex flex-wrap sm:flex-nowrap gap-2 w-full xl:w-auto mt-2 xl:mt-0">
+                    {/* Desktop Buttons for Active Tickets */}
+                    <button onClick={() => setMemoModal({ticketId: ticket.id, text: ticket.memo || ''})} className="hidden xl:flex p-3 bg-white rounded-lg border border-gray-200 text-gray-500 hover:text-blue-600 hover:bg-blue-50 transition-colors shadow-sm" title="Add Memo"><Edit3 className="w-5 h-5" /></button>
+                    <button onClick={() => setReturnModal(ticket.id)} className="hidden xl:flex p-3 bg-white rounded-lg border border-gray-200 text-orange-500 hover:text-white hover:bg-orange-500 transition-colors shadow-sm" title="Return to Queue"><RotateCcw className="w-5 h-5" /></button>
+                    
+                    {ticket.status === 'calling' ? (
+                      <>
+                        <button onClick={()=>updateTicketStatus(ticket.id, 'calling', panelRoom)} className="p-3 bg-white border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 flex-1 sm:flex-none shadow-sm" title="Recall (Ring Bell)"><BellRing className="w-5 h-5 mx-auto" /></button>
+                        <button onClick={()=>updateTicketStatus(ticket.id, 'arrived')} className="bg-blue-600 text-white font-bold px-6 py-3 rounded-lg hover:bg-blue-700 flex-1 sm:flex-none shadow-sm active:scale-95">Arrived</button>
+                        <button onClick={()=>updateTicketStatus(ticket.id, 'missed')} className="bg-red-50 border border-red-200 text-red-600 font-bold px-4 py-3 rounded-lg hover:bg-red-100 flex-1 sm:flex-none">Miss</button>
+                      </>
+                    ) : (
+                      <button onClick={()=>updateTicketStatus(ticket.id, 'completed')} className="bg-green-600 text-white font-bold px-8 py-3 rounded-lg hover:bg-green-700 w-full xl:w-auto shadow-sm active:scale-95 flex items-center justify-center gap-2"><CheckCircle className="w-5 h-5"/> Complete</button>
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Waiting Queue Sidebar */}
+      <div className="w-full lg:w-96 bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden flex flex-col min-h-[400px] lg:min-h-0 shrink-0">
+        <div className="p-4 border-b border-gray-200 bg-gray-50 flex flex-col gap-3 shrink-0">
+          <div className="flex justify-between items-center">
+            <h3 className="font-bold text-gray-700 flex items-center gap-2"><Users className="w-5 h-5 text-blue-500"/> Queue <span className="bg-blue-100 text-blue-800 text-xs px-2 py-0.5 rounded-full">{waitingTickets.length}</span></h3>
+          </div>
+          <div className="flex bg-gray-200 p-1 rounded-lg">
+            <button onClick={() => setQueueSortBy('time')} className={`flex-1 flex justify-center items-center gap-1 text-xs font-bold py-2 rounded-md transition-colors ${queueSortBy === 'time' ? 'bg-white shadow-sm text-gray-800' : 'text-gray-500'}`}><Timer className="w-4 h-4" /> Wait Time</button>
+            <button onClick={() => setQueueSortBy('number')} className={`flex-1 flex justify-center items-center gap-1 text-xs font-bold py-2 rounded-md transition-colors ${queueSortBy === 'number' ? 'bg-white shadow-sm text-gray-800' : 'text-gray-500'}`}><ArrowUpDown className="w-4 h-4" /> Number</button>
+          </div>
+        </div>
+        
+        <div className="flex-1 overflow-y-auto divide-y divide-gray-100">
+          {sortedWaitingTickets.length === 0 ? <div className="text-center text-gray-400 py-10 italic">Queue is empty</div> : (
+            sortedWaitingTickets.map(t => {
+              const waitTime = getWaitTimeMinutes(t.createdAt, currentTime);
+              const isOvertime = waitTime > 10;
+              
+              return (
+                <div key={t.id} onContextMenu={(e) => { e.preventDefault(); setMemoModal({ ticketId: t.id, text: t.memo || '' }); }} className={`p-4 transition-colors flex justify-between items-center group relative border-l-4 ${isOvertime ? 'bg-red-50 border-red-500' : 'bg-white border-transparent hover:bg-gray-50'}`}>
+                  <div className="flex-1 min-w-0 pr-4">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <div className={`text-xl font-black ${isOvertime ? 'text-red-700' : 'text-gray-900'}`}>{t.id}</div>
+                      {isOvertime && <AlertTriangle className="w-5 h-5 text-red-600 animate-pulse" title="Waiting over 10 minutes" />}
+                      {t.isReturned && <span className="bg-orange-100 text-orange-700 text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider border border-orange-200">Returned</span>}
+                    </div>
+                    <div className={`text-xs font-medium mt-1 w-max px-2 py-0.5 rounded-full ${isOvertime ? 'bg-red-200 text-red-800' : 'bg-gray-100 text-gray-600'}`}>Wait: {waitTime} min</div>
+                    {t.memo && <div className={`text-xs mt-2 p-1.5 rounded border flex items-start gap-1 truncate shadow-sm ${isOvertime ? 'bg-white border-red-200 text-red-700' : 'bg-blue-50 border-blue-100 text-blue-700'}`} title={t.memo}><FileEdit className="w-3 h-3 shrink-0 mt-0.5"/> <span className="truncate">{t.memo}</span></div>}
+                  </div>
+                  <div className="flex gap-2 shrink-0 items-center">
+                    <button onClick={() => updateTicketStatus(t.id, 'calling', panelRoom)} className={`px-4 py-2 font-bold rounded-lg text-sm transition-all shadow-sm active:scale-95 ${isOvertime ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-blue-100 text-blue-700 hover:bg-blue-600 hover:text-white lg:opacity-0 lg:group-hover:opacity-100'}`}>Call</button>
+                    <button onClick={() => setMemoModal({ ticketId: t.id, text: t.memo || '' })} className="px-3 py-2 bg-white border border-gray-200 text-gray-500 rounded-lg text-sm flex items-center justify-center hover:text-blue-600 lg:opacity-0 lg:group-hover:opacity-100 transition-all shadow-sm" title="Edit Memo"><Edit3 className="w-4 h-4"/></button>
+                    <button onClick={() => setDeleteModal(t.id)} className="px-3 py-2 bg-white border border-gray-200 text-red-500 rounded-lg text-sm flex items-center justify-center hover:text-white hover:bg-red-500 lg:opacity-0 lg:group-hover:opacity-100 transition-all shadow-sm" title="Cancel Ticket"><Trash2 className="w-4 h-4"/></button>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const ReportsView = ({ tickets }) => {
+  const stats = useMemo(() => {
+    const completed = tickets.filter(t => t.status === 'completed' || t.status === 'missed');
+    return { total: completed.length };
+  }, [tickets]);
+  return (
+    <div className="h-[calc(100vh-64px)] bg-gray-100 p-4 md:p-6 print:hidden">
+      <h1 className="text-2xl font-bold mb-6">Analytics</h1>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-white p-6 rounded-xl border shadow-sm">
+          <div className="text-sm text-gray-500 font-bold uppercase tracking-wider">Total Served Tickets</div>
+          <div className="text-4xl font-black text-gray-800 mt-2">{stats.total}</div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export default function App() {
   const [user, setUser] = useState(null);
   const [currentView, setCurrentView] = useState('home');
@@ -259,7 +670,6 @@ export default function App() {
 
   const waitingTickets = tickets.filter(t => t.status === 'waiting');
   const activeTickets = tickets.filter(t => ['calling', 'arrived'].includes(t.status));
-  const completedTickets = tickets.filter(t => ['completed', 'missed'].includes(t.status));
 
   const generateTicket = async (serviceId) => {
     if (!user) {
@@ -378,428 +788,6 @@ export default function App() {
     setDeleteModal(null);
   };
 
-  const getWaitTimeMinutes = (createdAt) => {
-    const diffMs = currentTime - new Date(createdAt);
-    return Math.max(0, Math.floor(diffMs / 60000));
-  };
-
-  // --- VIEWS ---
-  const HomeView = () => (
-    <div className="flex flex-col items-center justify-center min-h-[calc(100vh-64px)] bg-gray-50 p-4 md:p-8 print:hidden">
-      <div className="max-w-5xl w-full text-center space-y-6 md:space-y-8">
-        <h1 className="text-3xl md:text-5xl font-bold text-gray-800 tracking-tight leading-tight">{PHARMACY_NAME}</h1>
-        <h2 className="text-xl md:text-3xl text-gray-600 font-medium">{PHARMACY_NAME_ZH}</h2>
-        <div className="flex items-center justify-center gap-2 mt-4 text-green-700 bg-green-100 px-4 py-2 rounded-full w-max mx-auto shadow-sm border border-green-200">
-          <Database className="w-4 h-4 md:w-5 md:h-5" /> <span className="text-sm md:text-base font-bold">Cloud Sync Active</span>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mt-8 md:mt-12">
-          <button onClick={() => setCurrentView('kiosk')} className="bg-white p-6 md:p-8 rounded-2xl shadow hover:shadow-lg transition-all group flex flex-col items-center cursor-pointer border border-gray-100">
-            <div className="bg-blue-100 p-4 md:p-5 rounded-full mb-4 group-hover:scale-110 transition-transform"><Printer className="w-8 h-8 md:w-10 md:h-10 text-blue-600" /></div>
-            <h3 className="text-lg md:text-xl font-bold text-gray-800">Ticketing Kiosk</h3>
-            <p className="text-gray-500 mt-2 text-sm">Customer ticket machine</p>
-          </button>
-          <button onClick={() => setCurrentView('monitor')} className="bg-white p-6 md:p-8 rounded-2xl shadow hover:shadow-lg transition-all group flex flex-col items-center cursor-pointer border border-gray-100">
-            <div className="bg-indigo-100 p-4 md:p-5 rounded-full mb-4 group-hover:scale-110 transition-transform"><Monitor className="w-8 h-8 md:w-10 md:h-10 text-indigo-600" /></div>
-            <h3 className="text-lg md:text-xl font-bold text-gray-800">TV Monitor</h3>
-            <p className="text-gray-500 mt-2 text-sm">Public queue display</p>
-          </button>
-          <button onClick={() => { if(isStaffAuthenticated) setCurrentView('panel'); else setCurrentView('login'); }} className="bg-white p-6 md:p-8 rounded-2xl shadow hover:shadow-lg transition-all group flex flex-col items-center cursor-pointer border border-gray-100">
-            <div className="bg-teal-100 p-4 md:p-5 rounded-full mb-4 group-hover:scale-110 transition-transform"><UserCheck className="w-8 h-8 md:w-10 md:h-10 text-teal-600" /></div>
-            <h3 className="text-lg md:text-xl font-bold text-gray-800">Pharmacist Panel</h3>
-            <p className="text-gray-500 mt-2 text-sm">Staff station control</p>
-          </button>
-          <button onClick={() => { if(isStaffAuthenticated) setCurrentView('reports'); else setCurrentView('login'); }} className="bg-white p-6 md:p-8 rounded-2xl shadow hover:shadow-lg transition-all group flex flex-col items-center cursor-pointer border border-gray-100">
-            <div className="bg-purple-100 p-4 md:p-5 rounded-full mb-4 group-hover:scale-110 transition-transform"><BarChart3 className="w-8 h-8 md:w-10 md:h-10 text-purple-600" /></div>
-            <h3 className="text-lg md:text-xl font-bold text-gray-800">Backstage Data</h3>
-            <p className="text-gray-500 mt-2 text-sm">Reports & Analytics</p>
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-
-  const LoginView = () => {
-    const [pin, setPin] = useState("");
-    const [error, setError] = useState(false);
-    const handleLogin = () => {
-      if (pin === STAFF_PIN) { setIsStaffAuthenticated(true); setCurrentView('panel'); }
-      else { setError(true); setPin(""); }
-    };
-    return (
-      <div className="min-h-[calc(100vh-64px)] bg-gray-100 flex items-center justify-center p-4 md:p-6 print:hidden">
-        <div className="bg-white p-8 md:p-10 rounded-2xl shadow-xl w-full max-w-sm text-center">
-          <div className="bg-slate-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6"><Lock className="w-8 h-8 text-slate-600" /></div>
-          <h2 className="text-2xl md:text-3xl font-bold text-gray-800 mb-2">Staff Only</h2>
-          <p className="text-gray-500 mb-8">Enter the security PIN</p>
-          <input type="password" value={pin} onChange={(e) => { setError(false); setPin(e.target.value); }} onKeyDown={(e) => e.key === 'Enter' && handleLogin()} className={`w-full text-center text-3xl tracking-[1em] border-2 rounded-xl p-4 mb-4 outline-none ${error ? 'border-red-500 bg-red-50' : 'border-gray-200 focus:border-blue-500'}`} placeholder="****" maxLength={4} autoFocus />
-          <button onClick={handleLogin} className="w-full bg-blue-600 text-white font-bold py-4 rounded-xl hover:bg-blue-700 transition-all text-lg shadow-md active:scale-95">Unlock Access</button>
-          <button onClick={() => setCurrentView('home')} className="mt-6 text-gray-400 font-medium w-full py-2">Cancel</button>
-        </div>
-      </div>
-    );
-  };
-
-  const KioskView = () => {
-    const [printedTicket, setPrintedTicket] = useState(null);
-    const [isGenerating, setIsGenerating] = useState(false);
-
-    useEffect(() => {
-      if (printedTicket) {
-        const timer = setTimeout(() => {
-          window.print();
-        }, 500); 
-        return () => clearTimeout(timer);
-      }
-    }, [printedTicket]);
-
-    const handlePrint = async (serviceId) => {
-      if (isGenerating) return;
-      setIsGenerating(true);
-      
-      try {
-        const ticket = await generateTicket(serviceId);
-        if (ticket) {
-          setPrintedTicket(ticket);
-        }
-      } finally {
-        // ALWAYS release the button block so it doesn't get stuck
-        setIsGenerating(false);
-      }
-    };
-
-    return (
-      <>
-        <div className="min-h-[calc(100vh-64px)] bg-gray-100 flex flex-col items-center justify-center p-4 md:p-6 print:hidden">
-          <div className="max-w-3xl w-full bg-white rounded-3xl shadow-2xl overflow-hidden relative">
-            <div className="bg-blue-900 p-6 md:p-8 text-center text-white">
-              <h1 className="text-2xl md:text-4xl font-bold mb-2">Welcome 歡迎光臨</h1>
-              <p className="text-blue-100 text-sm md:text-lg">Please select a service to get a ticket</p>
-              <p className="text-blue-100 text-sm md:text-lg">請選擇服務以領取籌號</p>
-            </div>
-            <div className="p-4 md:p-8 space-y-4 md:space-y-6">
-              {SERVICES.map(service => {
-                const Icon = service.icon;
-                return (
-                  <button key={service.id} onClick={() => handlePrint(service.id)} disabled={isGenerating} className={`w-full ${service.color} ${service.hover} text-white p-5 md:p-6 rounded-2xl shadow-md transition-all active:scale-95 flex items-center justify-between disabled:opacity-70`}>
-                    <div className="flex items-center gap-4 md:gap-6 text-left">
-                      <div className="bg-white/20 p-3 md:p-4 rounded-full"><Icon className="w-8 h-8 md:w-10 md:h-10" /></div>
-                      <div>
-                        <h2 className="text-xl md:text-3xl font-bold">{service.name}</h2>
-                        <h3 className="text-lg md:text-2xl mt-1 opacity-90">{service.nameZh}</h3>
-                      </div>
-                    </div>
-                    <ChevronRight className="w-8 h-8 md:w-10 md:h-10 opacity-50" />
-                  </button>
-                );
-              })}
-            </div>
-            
-            {printedTicket && (
-              <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                <div className="bg-white p-8 rounded-3xl shadow-2xl w-full max-w-sm text-center border-t-8 border-blue-600 flex flex-col items-center animate-in zoom-in-95 duration-200">
-                  <h2 className="text-sm font-bold text-gray-500 uppercase tracking-widest mb-1">Your Ticket Number</h2>
-                  <h2 className="text-sm font-bold text-gray-500 uppercase tracking-widest mb-2">您的籌號</h2>
-                  <div className="text-7xl font-black text-blue-600 my-4 tracking-tighter">{printedTicket.id}</div>
-                  
-                  {/* Robust Chrome Manual Print Fallback Button */}
-                  <button onClick={() => window.print()} className="mt-2 bg-blue-50 text-blue-700 font-bold py-3 px-6 rounded-full flex items-center justify-center gap-2 hover:bg-blue-100 transition-colors w-full border border-blue-200 mb-6 shadow-sm active:scale-95">
-                    <Printer className="w-5 h-5" /> Click to Print Ticket
-                  </button>
-                  
-                  <button onClick={() => setPrintedTicket(null)} className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold w-full py-4 rounded-xl transition-colors">Close 關閉</button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* --- PRINTABLE TICKET --- */}
-        {/* Removed print:absolute to solve Chrome blank page bug */}
-        {printedTicket && (
-          <div className="hidden print:block text-black text-center w-full max-w-[80mm] mx-auto p-4 font-sans bg-white z-[9999] m-0">
-            <div className="border-b-2 border-black pb-4 mb-4">
-              <h1 className="text-base font-bold leading-tight">{PHARMACY_NAME}</h1>
-              <h2 className="text-lg font-bold mt-1">{PHARMACY_NAME_ZH}</h2>
-            </div>
-            <div className="mb-2">
-              <div className="text-xs uppercase font-bold tracking-widest text-gray-600">{printedTicket.serviceName}</div>
-              <div className="text-sm font-bold">{printedTicket.serviceNameZh}</div>
-            </div>
-            <div className="border-y-4 border-black py-6 my-4">
-              <div className="text-sm font-bold uppercase mb-1">Your Ticket Number 您的籌號</div>
-              <div className="text-[6rem] font-black leading-none">{printedTicket.id}</div>
-            </div>
-            <div className="text-sm font-bold">{formatDate(printedTicket.createdAt)}</div>
-            <div className="text-sm mb-6">{formatTime(printedTicket.createdAt)}</div>
-            <div className="border-t border-dashed border-gray-400 pt-4 text-xs italic">
-              Please wait for your number.<br/>請耐心等候叫號。
-            </div>
-          </div>
-        )}
-      </>
-    );
-  };
-
-  const MonitorView = () => {
-    const currentTicket = tickets.find(t => t.id === lastCallEvent.id);
-    const [flash, setFlash] = useState(false);
-    const [isAudioEnabled, setIsAudioEnabled] = useState(false);
-    const [showOverlay, setShowOverlay] = useState(true);
-    
-    const ticketsRef = useRef(tickets);
-    useEffect(() => { ticketsRef.current = tickets; }, [tickets]);
-
-    // Forceful Sound Enable Screen (Bypasses Chrome Security)
-    const handleStartMonitor = () => {
-      if (window.speechSynthesis) {
-        const initVoice = new SpeechSynthesisUtterance('Monitor active');
-        initVoice.volume = 0; 
-        window.speechSynthesis.speak(initVoice);
-      }
-      setIsAudioEnabled(true);
-      setShowOverlay(false);
-    };
-
-    useEffect(() => {
-      if (lastCallEvent.time && lastCallEvent.id && !showOverlay) {
-        setFlash(true);
-        const timer = setTimeout(() => setFlash(false), 3000);
-
-        if (isAudioEnabled && window.speechSynthesis) {
-          const t = ticketsRef.current.find(t => t.id === lastCallEvent.id);
-          if (t && t.calledByCounter) {
-            
-            // Chrome Bug Fix: Clear stuck voices before speaking
-            window.speechSynthesis.cancel();
-
-            // Timeout wrapper prevents Chrome from canceling the new speech
-            setTimeout(() => {
-              const formattedTicket = t.id.split('').join(' '); 
-              
-              const msgEn = new SpeechSynthesisUtterance(`Ticket ${formattedTicket}, please proceed to ${t.calledByCounter}.`);
-              msgEn.lang = 'en-US';
-              msgEn.rate = 0.85;
-
-              let zhCounter = t.calledByCounter;
-              if (zhCounter.includes('Counter')) zhCounter = zhCounter.replace('Counter ', '') + '號櫃位';
-              if (zhCounter.includes('Room')) zhCounter = zhCounter.replace('Room ', '') + '號房間';
-              
-              const msgZh = new SpeechSynthesisUtterance(`請 ${formattedTicket} 號客, 到 ${zhCounter}。`);
-              msgZh.lang = 'zh-HK';
-              msgZh.rate = 0.85;
-
-              window.speechSynthesis.speak(msgEn);
-              window.speechSynthesis.speak(msgZh);
-            }, 100);
-          }
-        }
-        return () => clearTimeout(timer);
-      }
-    }, [lastCallEvent.time, isAudioEnabled, showOverlay]);
-
-    // Full screen overlay blocks access until sound is enabled
-    if (showOverlay) {
-      return (
-        <div className="h-[calc(100vh-64px)] bg-slate-900 flex flex-col items-center justify-center p-6 print:hidden">
-          <div className="max-w-lg w-full bg-slate-800 p-10 rounded-3xl shadow-2xl text-center border border-slate-700">
-            <Volume2 className="w-20 h-20 text-blue-500 mx-auto mb-6 animate-pulse" />
-            <h2 className="text-3xl font-bold text-white mb-4">Start Monitor</h2>
-            <p className="text-slate-400 mb-8 text-lg">Chrome requires you to click once before it allows audio to play.</p>
-            <button onClick={handleStartMonitor} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-6 rounded-2xl text-xl shadow-[0_0_30px_rgba(37,99,235,0.4)] transition-all active:scale-95 flex items-center justify-center gap-3">
-              <Play className="w-6 h-6 fill-current" /> Enable Sound & Start
-            </button>
-          </div>
-        </div>
-      );
-    }
-
-    return (
-      <div className="min-h-[calc(100vh-64px)] bg-slate-900 text-white flex flex-col lg:flex-row overflow-hidden print:hidden">
-        <div className="w-full lg:w-2/3 p-8 md:p-12 flex flex-col justify-center items-center border-b lg:border-b-0 lg:border-r border-slate-700 relative">
-          
-          <div className="lg:absolute top-8 left-12 mb-8 lg:mb-0 w-full lg:w-auto flex justify-between lg:block">
-            <h2 className="text-xl md:text-2xl font-bold text-slate-400 flex items-center gap-3 justify-center"><Activity className="w-6 h-6 md:w-8 md:h-8 text-blue-500" />{PHARMACY_NAME}</h2>
-          </div>
-
-          <div className="mt-10 lg:mt-0">
-            <h1 className="text-3xl md:text-5xl font-medium text-slate-400 uppercase tracking-widest text-center">Now Calling 現在叫號</h1>
-            <div className={`transition-all duration-300 text-center ${flash ? 'scale-110 text-yellow-400 drop-shadow-[0_0_30px_rgba(250,204,21,0.5)]' : 'text-white'}`}>
-              <div className="text-[8rem] md:text-[15rem] lg:text-[18rem] font-black leading-none my-4 md:my-8">{currentTicket ? currentTicket.id : '---'}</div>
-            </div>
-            {currentTicket && currentTicket.calledByCounter && (
-              <div className="text-center animate-in fade-in slide-in-from-bottom-4">
-                <div className="inline-block bg-slate-800 text-yellow-400 px-8 py-3 md:px-12 md:py-4 rounded-full text-2xl md:text-4xl font-bold border border-slate-700">
-                  {currentTicket.calledByCounter} {currentTicket.calledByCounter.includes('Counter') ? '櫃位' : '房間'}
-                </div>
-              </div>
-            )}
-          </div>
-
-        </div>
-        <div className="w-full lg:w-1/3 bg-slate-800 p-6 md:p-8 flex flex-col">
-          <h2 className="text-2xl md:text-3xl font-bold text-slate-300 mb-6 border-b border-slate-700 pb-4">Next in Line</h2>
-          <div className="space-y-4 overflow-y-auto flex-1">
-            {waitingTickets.sort((a,b) => new Date(a.createdAt) - new Date(b.createdAt)).slice(0, 8).map((ticket) => (
-              <div key={ticket.id} className="flex justify-between items-center bg-slate-700/50 p-4 md:p-6 rounded-xl border border-slate-600/50">
-                <span className="text-3xl md:text-4xl font-bold text-slate-200">{ticket.id}</span>
-                <span className="text-slate-400 text-base md:text-lg truncate pl-4">{ticket.serviceNameZh}</span>
-              </div>
-            ))}
-            {waitingTickets.length === 0 && <div className="text-center text-slate-500 mt-10 text-lg">No tickets waiting</div>}
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  const PanelView = () => {
-    if (!panelRoom) return (
-      <div className="min-h-[calc(100vh-64px)] bg-gray-100 flex items-center justify-center p-4 print:hidden">
-        <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md text-center">
-          <h2 className="text-2xl font-bold text-gray-800 mb-8">Pharmacist Panel</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {STATIONS.map(station => (
-              <button key={station} onClick={() => setPanelRoom(station)} className="p-4 border-2 rounded-xl font-bold text-lg text-gray-700 hover:border-teal-500 hover:bg-teal-50 hover:text-teal-700 transition-all shadow-sm active:scale-95">{station}</button>
-            ))}
-          </div>
-          <button onClick={() => { setIsStaffAuthenticated(false); setCurrentView('home'); }} className="mt-8 text-sm font-medium text-gray-400 hover:text-red-500 flex items-center justify-center gap-2 mx-auto px-4 py-2"><Lock className="w-4 h-4" /> Log Out System</button>
-        </div>
-      </div>
-    );
-
-    const sortedWaitingTickets = [...waitingTickets].sort((a, b) => {
-      if (queueSortBy === 'number') return a.id.localeCompare(b.id);
-      return new Date(a.createdAt) - new Date(b.createdAt);
-    });
-
-    return (
-      <div className="h-auto lg:h-[calc(100vh-64px)] bg-gray-100 p-4 lg:p-6 flex flex-col lg:flex-row gap-4 lg:gap-6 overflow-y-auto lg:overflow-hidden print:hidden">
-        <div className="flex-1 flex flex-col gap-4 lg:gap-6 lg:overflow-hidden">
-          
-          {/* Top Control Panel */}
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 lg:p-6 shrink-0">
-            <div className="flex justify-between items-center mb-4 lg:mb-6 border-b border-gray-100 pb-4">
-              <h2 className="text-xl lg:text-2xl font-bold text-teal-700 flex items-center gap-2"><UserCheck className="w-6 h-6"/> {panelRoom}</h2>
-              <button onClick={() => setPanelRoom(null)} className="text-gray-500 hover:text-red-600 text-sm font-medium flex items-center gap-1 bg-gray-50 px-3 py-2 rounded-lg"><LogOut className="w-4 h-4"/> Switch</button>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 lg:gap-4">
-              {SERVICES.map(service => {
-                const next = waitingTickets.sort((a,b)=>new Date(a.createdAt)-new Date(b.createdAt)).find(t=>t.type===service.id);
-                return (
-                  <button key={service.id} onClick={() => next && updateTicketStatus(next.id, 'calling', panelRoom)} disabled={!next} className={`p-4 rounded-xl border-2 text-left transition-all ${next ? 'border-blue-300 bg-blue-50 hover:bg-blue-100 shadow-sm active:scale-95 cursor-pointer' : 'border-gray-100 bg-gray-50 opacity-50 cursor-not-allowed'}`}>
-                    <div className="text-xs font-bold text-blue-600 uppercase tracking-wider mb-1 truncate">{service.name}</div>
-                    <div className="text-3xl font-black text-gray-900">{next ? next.id : '--'}</div>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Active Tickets List */}
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 flex-1 min-h-[300px] lg:min-h-0 flex flex-col overflow-hidden">
-            <div className="p-4 border-b border-gray-200 bg-gray-50 font-bold text-gray-700 flex items-center gap-2"><Activity className="w-5 h-5 text-green-500"/> Serving at {panelRoom}</div>
-            <div className="p-4 overflow-y-auto space-y-3 lg:space-y-4 flex-1">
-              {activeTickets.filter(t => t.calledByCounter === panelRoom).length === 0 ? (
-                <div className="text-center text-gray-400 py-10 italic">No tickets currently being served.</div>
-              ) : (
-                activeTickets.filter(t => t.calledByCounter === panelRoom).map(ticket => (
-                  <div key={ticket.id} className={`p-4 rounded-xl border-l-4 shadow-sm flex flex-col xl:flex-row gap-4 xl:gap-0 justify-between items-start xl:items-center ${ticket.status === 'calling' ? 'bg-yellow-50 border-yellow-400' : 'bg-green-50 border-green-500'}`}>
-                    <div className="w-full xl:w-auto">
-                      <div className="flex items-center justify-between xl:justify-start gap-4">
-                        <div className="text-3xl font-black text-gray-900">{ticket.id}</div>
-                        {/* Mobile Buttons for Active Tickets */}
-                        <div className="flex gap-2 xl:hidden">
-                          <button onClick={() => setMemoModal({ticketId: ticket.id, text: ticket.memo || ''})} className="p-2 bg-white rounded-lg border border-gray-200 text-gray-500 hover:text-blue-600 shadow-sm"><Edit3 className="w-5 h-5" /></button>
-                          <button onClick={() => setReturnModal(ticket.id)} className="p-2 bg-white rounded-lg border border-gray-200 text-orange-500 hover:text-orange-600 shadow-sm"><RotateCcw className="w-5 h-5" /></button>
-                        </div>
-                      </div>
-                      <div className="text-sm text-gray-600 font-medium">{ticket.serviceNameZh}</div>
-                      {ticket.memo && <div className="mt-2 text-blue-700 bg-white px-3 py-1.5 rounded-lg text-sm border border-blue-200 shadow-sm flex items-start gap-2"><FileEdit className="w-4 h-4 shrink-0 mt-0.5" /> <span className="break-words">{ticket.memo}</span></div>}
-                    </div>
-                    <div className="flex flex-wrap sm:flex-nowrap gap-2 w-full xl:w-auto mt-2 xl:mt-0">
-                      {/* Desktop Buttons for Active Tickets */}
-                      <button onClick={() => setMemoModal({ticketId: ticket.id, text: ticket.memo || ''})} className="hidden xl:flex p-3 bg-white rounded-lg border border-gray-200 text-gray-500 hover:text-blue-600 hover:bg-blue-50 transition-colors shadow-sm" title="Add Memo"><Edit3 className="w-5 h-5" /></button>
-                      <button onClick={() => setReturnModal(ticket.id)} className="hidden xl:flex p-3 bg-white rounded-lg border border-gray-200 text-orange-500 hover:text-white hover:bg-orange-500 transition-colors shadow-sm" title="Return to Queue"><RotateCcw className="w-5 h-5" /></button>
-                      
-                      {ticket.status === 'calling' ? (
-                        <>
-                          <button onClick={()=>updateTicketStatus(ticket.id, 'calling', panelRoom)} className="p-3 bg-white border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 flex-1 sm:flex-none shadow-sm" title="Recall (Ring Bell)"><BellRing className="w-5 h-5 mx-auto" /></button>
-                          <button onClick={()=>updateTicketStatus(ticket.id, 'arrived')} className="bg-blue-600 text-white font-bold px-6 py-3 rounded-lg hover:bg-blue-700 flex-1 sm:flex-none shadow-sm active:scale-95">Arrived</button>
-                          <button onClick={()=>updateTicketStatus(ticket.id, 'missed')} className="bg-red-50 border border-red-200 text-red-600 font-bold px-4 py-3 rounded-lg hover:bg-red-100 flex-1 sm:flex-none">Miss</button>
-                        </>
-                      ) : (
-                        <button onClick={()=>updateTicketStatus(ticket.id, 'completed')} className="bg-green-600 text-white font-bold px-8 py-3 rounded-lg hover:bg-green-700 w-full xl:w-auto shadow-sm active:scale-95 flex items-center justify-center gap-2"><CheckCircle className="w-5 h-5"/> Complete</button>
-                      )}
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Waiting Queue Sidebar */}
-        <div className="w-full lg:w-96 bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden flex flex-col min-h-[400px] lg:min-h-0 shrink-0">
-          <div className="p-4 border-b border-gray-200 bg-gray-50 flex flex-col gap-3 shrink-0">
-            <div className="flex justify-between items-center">
-              <h3 className="font-bold text-gray-700 flex items-center gap-2"><Users className="w-5 h-5 text-blue-500"/> Queue <span className="bg-blue-100 text-blue-800 text-xs px-2 py-0.5 rounded-full">{waitingTickets.length}</span></h3>
-            </div>
-            <div className="flex bg-gray-200 p-1 rounded-lg">
-              <button onClick={() => setQueueSortBy('time')} className={`flex-1 flex justify-center items-center gap-1 text-xs font-bold py-2 rounded-md transition-colors ${queueSortBy === 'time' ? 'bg-white shadow-sm text-gray-800' : 'text-gray-500'}`}><Timer className="w-4 h-4" /> Wait Time</button>
-              <button onClick={() => setQueueSortBy('number')} className={`flex-1 flex justify-center items-center gap-1 text-xs font-bold py-2 rounded-md transition-colors ${queueSortBy === 'number' ? 'bg-white shadow-sm text-gray-800' : 'text-gray-500'}`}><ArrowUpDown className="w-4 h-4" /> Number</button>
-            </div>
-          </div>
-          
-          <div className="flex-1 overflow-y-auto divide-y divide-gray-100">
-            {sortedWaitingTickets.length === 0 ? <div className="text-center text-gray-400 py-10 italic">Queue is empty</div> : (
-              sortedWaitingTickets.map(t => {
-                const waitTime = getWaitTimeMinutes(t.createdAt);
-                const isOvertime = waitTime > 10;
-                
-                return (
-                  <div key={t.id} onContextMenu={(e) => { e.preventDefault(); setMemoModal({ ticketId: t.id, text: t.memo || '' }); }} className={`p-4 transition-colors flex justify-between items-center group relative border-l-4 ${isOvertime ? 'bg-red-50 border-red-500' : 'bg-white border-transparent hover:bg-gray-50'}`}>
-                    <div className="flex-1 min-w-0 pr-4">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <div className={`text-xl font-black ${isOvertime ? 'text-red-700' : 'text-gray-900'}`}>{t.id}</div>
-                        {isOvertime && <AlertTriangle className="w-5 h-5 text-red-600 animate-pulse" title="Waiting over 10 minutes" />}
-                        {t.isReturned && <span className="bg-orange-100 text-orange-700 text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider border border-orange-200">Returned</span>}
-                      </div>
-                      <div className={`text-xs font-medium mt-1 w-max px-2 py-0.5 rounded-full ${isOvertime ? 'bg-red-200 text-red-800' : 'bg-gray-100 text-gray-600'}`}>Wait: {waitTime} min</div>
-                      {t.memo && <div className={`text-xs mt-2 p-1.5 rounded border flex items-start gap-1 truncate shadow-sm ${isOvertime ? 'bg-white border-red-200 text-red-700' : 'bg-blue-50 border-blue-100 text-blue-700'}`} title={t.memo}><FileEdit className="w-3 h-3 shrink-0 mt-0.5"/> <span className="truncate">{t.memo}</span></div>}
-                    </div>
-                    <div className="flex gap-2 shrink-0 items-center">
-                      <button onClick={() => updateTicketStatus(t.id, 'calling', panelRoom)} className={`px-4 py-2 font-bold rounded-lg text-sm transition-all shadow-sm active:scale-95 ${isOvertime ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-blue-100 text-blue-700 hover:bg-blue-600 hover:text-white lg:opacity-0 lg:group-hover:opacity-100'}`}>Call</button>
-                      <button onClick={() => setMemoModal({ ticketId: t.id, text: t.memo || '' })} className="px-3 py-2 bg-white border border-gray-200 text-gray-500 rounded-lg text-sm flex items-center justify-center hover:text-blue-600 lg:opacity-0 lg:group-hover:opacity-100 transition-all shadow-sm" title="Edit Memo"><Edit3 className="w-4 h-4"/></button>
-                      <button onClick={() => setDeleteModal(t.id)} className="px-3 py-2 bg-white border border-gray-200 text-red-500 rounded-lg text-sm flex items-center justify-center hover:text-white hover:bg-red-500 lg:opacity-0 lg:group-hover:opacity-100 transition-all shadow-sm" title="Cancel Ticket"><Trash2 className="w-4 h-4"/></button>
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  const ReportsView = () => {
-    const stats = useMemo(() => {
-      const completed = tickets.filter(t => t.status === 'completed' || t.status === 'missed');
-      return { total: completed.length };
-    }, [tickets]);
-    return (
-      <div className="h-[calc(100vh-64px)] bg-gray-100 p-4 md:p-6 print:hidden">
-        <h1 className="text-2xl font-bold mb-6">Analytics</h1>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-white p-6 rounded-xl border shadow-sm">
-            <div className="text-sm text-gray-500 font-bold uppercase tracking-wider">Total Served Tickets</div>
-            <div className="text-4xl font-black text-gray-800 mt-2">{stats.total}</div>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
   return (
     <div className="min-h-screen font-sans bg-gray-50 print:bg-white">
       <nav className="h-16 bg-white border-b flex items-center justify-between px-4 md:px-6 shadow-sm print:hidden relative z-50">
@@ -841,12 +829,26 @@ export default function App() {
       </nav>
       
       <main>
-        {currentView === 'home' && <HomeView />}
-        {currentView === 'login' && <LoginView />}
-        {currentView === 'kiosk' && <KioskView />}
-        {currentView === 'monitor' && <MonitorView />}
-        {currentView === 'panel' && <PanelView />}
-        {currentView === 'reports' && <ReportsView />}
+        {currentView === 'home' && <HomeView setCurrentView={setCurrentView} isStaffAuthenticated={isStaffAuthenticated} />}
+        {currentView === 'login' && <LoginView setCurrentView={setCurrentView} setIsStaffAuthenticated={setIsStaffAuthenticated} />}
+        {currentView === 'kiosk' && <KioskView generateTicket={generateTicket} />}
+        {currentView === 'monitor' && <MonitorView tickets={tickets} waitingTickets={waitingTickets} lastCallEvent={lastCallEvent} />}
+        {currentView === 'panel' && <PanelView 
+          panelRoom={panelRoom} 
+          setPanelRoom={setPanelRoom} 
+          waitingTickets={waitingTickets} 
+          activeTickets={activeTickets} 
+          queueSortBy={queueSortBy} 
+          setQueueSortBy={setQueueSortBy} 
+          updateTicketStatus={updateTicketStatus} 
+          setMemoModal={setMemoModal} 
+          setReturnModal={setReturnModal} 
+          setDeleteModal={setDeleteModal} 
+          currentTime={currentTime} 
+          setIsStaffAuthenticated={setIsStaffAuthenticated} 
+          setCurrentView={setCurrentView} 
+        />}
+        {currentView === 'reports' && <ReportsView tickets={tickets} />}
       </main>
       
       {memoModal && <MemoDialog memoModal={memoModal} onClose={() => setMemoModal(null)} onSave={updateTicketMemo} />}

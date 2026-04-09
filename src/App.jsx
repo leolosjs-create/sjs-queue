@@ -250,31 +250,36 @@ const LoginView = ({ setCurrentView, setIsStaffAuthenticated }) => {
   );
 };
 
-const KioskView = ({ generateTicket }) => {
+const KioskView = ({ generateTicket, counters }) => {
   const [printedTicket, setPrintedTicket] = useState(null);
   const [isGenerating, setIsGenerating] = useState(false);
 
-  useEffect(() => {
-    if (printedTicket) {
-      const timer = setTimeout(() => {
-        window.print();
-      }, 500); 
-      return () => clearTimeout(timer);
-    }
-  }, [printedTicket]);
-
-  const handlePrint = async (serviceId) => {
+  const handlePrint = (serviceId) => {
     if (isGenerating) return;
     setIsGenerating(true);
     
-    try {
-      const ticket = await generateTicket(serviceId);
-      if (ticket) {
-        setPrintedTicket(ticket);
-      }
-    } finally {
-      setIsGenerating(false);
-    }
+    // 1. Optimistic UI Update: Create the ticket instantly to bypass browser async print blockers
+    const service = SERVICES.find(s => s.id === serviceId);
+    const newNum = (counters[serviceId] || 0) + 1;
+    const ticketId = `${serviceId}${newNum.toString().padStart(3, '0')}`;
+    
+    setPrintedTicket({
+      id: ticketId,
+      type: serviceId,
+      serviceName: service.name,
+      serviceNameZh: service.nameZh,
+      createdAt: new Date().toISOString()
+    });
+
+    // 2. Tiny timeout allows React to draw the ticket before triggering the print dialog
+    setTimeout(() => {
+      window.print();
+      
+      // 3. Save ticket to Firebase in the background while the print dialog is open
+      generateTicket(serviceId).finally(() => {
+        setIsGenerating(false);
+      });
+    }, 100);
   };
 
   return (
@@ -322,6 +327,7 @@ const KioskView = ({ generateTicket }) => {
         </div>
       </div>
 
+      {/* --- PRINTABLE TICKET --- */}
       {printedTicket && (
         <div className="hidden print:block text-black text-center w-full max-w-[80mm] mx-auto p-4 font-sans bg-white z-[9999] m-0">
           <div className="border-b-2 border-black pb-4 mb-4">
@@ -392,8 +398,9 @@ const MonitorView = ({ tickets, waitingTickets, lastCallEvent }) => {
             msgZh.lang = 'zh-HK';
             msgZh.rate = 0.85;
 
-            window.speechSynthesis.speak(msgEn);
+            // Flipped Order: Cantonese plays first, then English plays second
             window.speechSynthesis.speak(msgZh);
+            window.speechSynthesis.speak(msgEn);
           }, 100);
         }
       }
@@ -831,7 +838,7 @@ export default function App() {
       <main>
         {currentView === 'home' && <HomeView setCurrentView={setCurrentView} isStaffAuthenticated={isStaffAuthenticated} />}
         {currentView === 'login' && <LoginView setCurrentView={setCurrentView} setIsStaffAuthenticated={setIsStaffAuthenticated} />}
-        {currentView === 'kiosk' && <KioskView generateTicket={generateTicket} />}
+        {currentView === 'kiosk' && <KioskView generateTicket={generateTicket} counters={counters} />}
         {currentView === 'monitor' && <MonitorView tickets={tickets} waitingTickets={waitingTickets} lastCallEvent={lastCallEvent} />}
         {currentView === 'panel' && <PanelView 
           panelRoom={panelRoom} 

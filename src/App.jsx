@@ -5,7 +5,7 @@ import {
   Home, ChevronRight, Activity, LogOut, ArrowUpDown, 
   Timer, FileEdit, BarChart3, TrendingUp, Users, Database,
   Lock, KeyRound, AlertTriangle, Edit3, Menu, RotateCcw,
-  Volume2, VolumeX, Trash2, Play
+  Volume2, VolumeX, Trash2, Play, Calendar
 } from 'lucide-react';
 
 // --- FIREBASE CLOUD SYNC IMPORTS ---
@@ -63,21 +63,14 @@ const getWaitTimeMinutes = (createdAt, currentTime) => {
 // --- SUB-COMPONENTS & DIALOGS ---
 const MemoDialog = ({ memoModal, onClose, onSave }) => {
   const [text, setText] = useState(memoModal.text);
-  
   return (
     <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4">
       <div className="bg-white rounded-xl p-6 shadow-2xl w-full max-w-md animate-in zoom-in-95 duration-200">
         <div className="flex items-center gap-3 mb-4">
-          <div className="bg-blue-100 p-2 rounded-lg text-blue-600">
-            <FileEdit className="w-5 h-5" />
-          </div>
-          <h3 className="text-lg font-bold text-gray-800">
-            Memo for Ticket {memoModal.ticketId}
-          </h3>
+          <div className="bg-blue-100 p-2 rounded-lg text-blue-600"><FileEdit className="w-5 h-5" /></div>
+          <h3 className="text-lg font-bold text-gray-800">Memo for Ticket {memoModal.ticketId}</h3>
         </div>
-        <p className="text-sm text-gray-500 mb-4">
-          Add patient name, Rx number, or purpose of visit.
-        </p>
+        <p className="text-sm text-gray-500 mb-4">Add patient name, Rx number, or purpose of visit.</p>
         <textarea
           className="w-full border border-gray-200 rounded-lg p-3 min-h-[100px] mb-4 focus:ring-2 focus:ring-blue-500 outline-none resize-none text-base"
           placeholder="e.g. Rx 12345, Patient Name..."
@@ -96,21 +89,14 @@ const MemoDialog = ({ memoModal, onClose, onSave }) => {
 
 const ReturnDialog = ({ returnModal, onClose, onConfirm }) => {
   const [text, setText] = useState("");
-  
   return (
     <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4">
       <div className="bg-white rounded-xl p-6 shadow-2xl w-full max-w-md animate-in zoom-in-95 duration-200">
         <div className="flex items-center gap-3 mb-4">
-          <div className="bg-orange-100 p-2 rounded-lg text-orange-600">
-            <RotateCcw className="w-5 h-5" />
-          </div>
-          <h3 className="text-lg font-bold text-gray-800">
-            Return Ticket {returnModal} to Queue
-          </h3>
+          <div className="bg-orange-100 p-2 rounded-lg text-orange-600"><RotateCcw className="w-5 h-5" /></div>
+          <h3 className="text-lg font-bold text-gray-800">Return Ticket {returnModal} to Queue</h3>
         </div>
-        <p className="text-sm text-gray-500 mb-4">
-          Add a remark (e.g., waiting for doctor, missing info). This ticket will be sent back to the waiting list.
-        </p>
+        <p className="text-sm text-gray-500 mb-4">Add a remark. This ticket will be sent back to the waiting list.</p>
         <textarea
           className="w-full border border-gray-200 rounded-lg p-3 min-h-[100px] mb-4 focus:ring-2 focus:ring-orange-500 outline-none resize-none text-base"
           placeholder="Reason for returning to queue..."
@@ -131,12 +117,7 @@ const DeleteDialog = ({ deleteModal, onClose, onConfirm }) => {
   const [selectedReason, setSelectedReason] = useState("Customer left");
   const [customReason, setCustomReason] = useState("");
 
-  const COMMON_REASONS = [
-    "Customer left",
-    "Printed by mistake",
-    "Duplicate ticket",
-    "Other"
-  ];
+  const COMMON_REASONS = ["Customer left", "Printed by mistake", "Duplicate ticket", "Other"];
 
   const handleConfirm = () => {
     const finalReason = selectedReason === "Other" ? customReason : selectedReason;
@@ -147,28 +128,15 @@ const DeleteDialog = ({ deleteModal, onClose, onConfirm }) => {
     <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4">
       <div className="bg-white rounded-xl p-6 shadow-2xl w-full max-w-md animate-in zoom-in-95 duration-200">
         <div className="flex items-center gap-3 mb-4">
-          <div className="bg-red-100 p-2 rounded-lg text-red-600">
-            <Trash2 className="w-5 h-5" />
-          </div>
-          <h3 className="text-lg font-bold text-gray-800">
-            Cancel Ticket {deleteModal}?
-          </h3>
+          <div className="bg-red-100 p-2 rounded-lg text-red-600"><Trash2 className="w-5 h-5" /></div>
+          <h3 className="text-lg font-bold text-gray-800">Cancel Ticket {deleteModal}?</h3>
         </div>
-        <p className="text-sm text-gray-500 mb-4">
-          Are you sure you want to cancel this ticket? Please select a reason below.
-        </p>
+        <p className="text-sm text-gray-500 mb-4">Are you sure you want to cancel this ticket?</p>
         
         <div className="space-y-2 mb-4">
           {COMMON_REASONS.map((reason) => (
             <label key={reason} className="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
-              <input 
-                type="radio" 
-                name="deleteReason" 
-                value={reason}
-                checked={selectedReason === reason}
-                onChange={(e) => setSelectedReason(e.target.value)}
-                className="w-4 h-4 text-red-600 focus:ring-red-500"
-              />
+              <input type="radio" name="deleteReason" value={reason} checked={selectedReason === reason} onChange={(e) => setSelectedReason(e.target.value)} className="w-4 h-4 text-red-600 focus:ring-red-500"/>
               <span className="text-gray-700 text-sm font-medium">{reason}</span>
             </label>
           ))}
@@ -193,7 +161,7 @@ const DeleteDialog = ({ deleteModal, onClose, onConfirm }) => {
   );
 };
 
-// --- VIEW COMPONENTS (Extracted to maintain state) ---
+// --- VIEW COMPONENTS ---
 
 const HomeView = ({ setCurrentView, isStaffAuthenticated }) => (
   <div className="flex flex-col items-center justify-center min-h-[calc(100vh-64px)] bg-gray-50 p-4 md:p-8 print:hidden">
@@ -253,33 +221,41 @@ const LoginView = ({ setCurrentView, setIsStaffAuthenticated }) => {
 const KioskView = ({ generateTicket, counters }) => {
   const [printedTicket, setPrintedTicket] = useState(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const printLock = useRef(false);
 
-  const handlePrint = (serviceId) => {
+  useEffect(() => {
+    if (printedTicket && !printLock.current) {
+      printLock.current = true;
+      const timer = setTimeout(() => {
+        window.print();
+        // Since window.print() is a blocking call in browsers, this timeout 
+        // effectively starts counting down AFTER the print dialog is dismissed!
+        setTimeout(() => {
+          setPrintedTicket(null);
+        }, 5000);
+      }, 300); 
+      return () => clearTimeout(timer);
+    }
+  }, [printedTicket]);
+
+  const handlePrint = async (serviceId) => {
     if (isGenerating) return;
     setIsGenerating(true);
+    printLock.current = false;
     
-    // 1. Optimistic UI Update: Create the ticket instantly to bypass browser async print blockers
-    const service = SERVICES.find(s => s.id === serviceId);
-    const newNum = (counters[serviceId] || 0) + 1;
-    const ticketId = `${serviceId}${newNum.toString().padStart(3, '0')}`;
-    
-    setPrintedTicket({
-      id: ticketId,
-      type: serviceId,
-      serviceName: service.name,
-      serviceNameZh: service.nameZh,
-      createdAt: new Date().toISOString()
-    });
+    try {
+      const ticket = await generateTicket(serviceId);
+      if (ticket) setPrintedTicket(ticket);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
 
-    // 2. Tiny timeout allows React to draw the ticket before triggering the print dialog
+  const handleManualPrint = () => {
+    window.print();
     setTimeout(() => {
-      window.print();
-      
-      // 3. Save ticket to Firebase in the background while the print dialog is open
-      generateTicket(serviceId).finally(() => {
-        setIsGenerating(false);
-      });
-    }, 100);
+      setPrintedTicket(null);
+    }, 5000);
   };
 
   return (
@@ -316,7 +292,7 @@ const KioskView = ({ generateTicket, counters }) => {
                 <h2 className="text-sm font-bold text-gray-500 uppercase tracking-widest mb-2">您的籌號</h2>
                 <div className="text-7xl font-black text-blue-600 my-4 tracking-tighter">{printedTicket.id}</div>
                 
-                <button onClick={() => window.print()} className="mt-2 bg-blue-50 text-blue-700 font-bold py-3 px-6 rounded-full flex items-center justify-center gap-2 hover:bg-blue-100 transition-colors w-full border border-blue-200 mb-6 shadow-sm active:scale-95">
+                <button onClick={handleManualPrint} className="mt-2 bg-blue-50 text-blue-700 font-bold py-3 px-6 rounded-full flex items-center justify-center gap-2 hover:bg-blue-100 transition-colors w-full border border-blue-200 mb-6 shadow-sm active:scale-95">
                   <Printer className="w-5 h-5" /> Click to Print Ticket
                 </button>
                 
@@ -398,7 +374,6 @@ const MonitorView = ({ tickets, waitingTickets, lastCallEvent }) => {
             msgZh.lang = 'zh-HK';
             msgZh.rate = 0.85;
 
-            // Flipped Order: Cantonese plays first, then English plays second
             window.speechSynthesis.speak(msgZh);
             window.speechSynthesis.speak(msgEn);
           }, 100);
@@ -595,18 +570,195 @@ const PanelView = ({
 };
 
 const ReportsView = ({ tickets }) => {
+  const [timeframe, setTimeframe] = useState('today');
+
   const stats = useMemo(() => {
-    const completed = tickets.filter(t => t.status === 'completed' || t.status === 'missed');
-    return { total: completed.length };
-  }, [tickets]);
+    const now = new Date();
+    
+    // Filter tickets based on selected timeframe
+    const filtered = tickets.filter(t => {
+      if (!t.createdAt) return false;
+      const tDate = new Date(t.createdAt);
+      if (timeframe === 'today') return tDate.toDateString() === now.toDateString();
+      if (timeframe === 'week') return (now - tDate) <= 7 * 24 * 60 * 60 * 1000;
+      if (timeframe === 'month') return (now - tDate) <= 30 * 24 * 60 * 60 * 1000;
+      return true; // 'all'
+    });
+
+    let waitTimes = [];
+    let turnaroundTimes = [];
+    let serviceCounts = { A: 0, B: 0, C: 0 };
+    let counterCounts = {};
+    let hourCounts = {};
+    
+    // Initialize hour slots from 8 AM to 7 PM
+    for(let i=8; i<=19; i++) hourCounts[i] = 0; 
+    STATIONS.forEach(s => counterCounts[s] = 0);
+
+    let completedCount = 0;
+
+    filtered.forEach(t => {
+      // Service Count Breakdown
+      if (t.type && (t.status === 'completed' || t.status === 'missed' || t.status === 'waiting' || t.status === 'calling' || t.status === 'arrived')) {
+        serviceCounts[t.type] = (serviceCounts[t.type] || 0) + 1;
+      }
+      
+      // Peak Hour Calculation
+      const created = new Date(t.createdAt).getTime();
+      const hour = new Date(t.createdAt).getHours();
+      if (hourCounts[hour] !== undefined) hourCounts[hour]++;
+
+      // Workload and Time calculations (Only for completed tickets)
+      if (t.status === 'completed') {
+        completedCount++;
+        
+        if (t.calledByCounter) {
+          counterCounts[t.calledByCounter] = (counterCounts[t.calledByCounter] || 0) + 1;
+        }
+
+        const called = t.calledAt ? new Date(t.calledAt).getTime() : null;
+        const completed = t.completedAt ? new Date(t.completedAt).getTime() : null;
+
+        if (called) waitTimes.push(called - created);
+        if (completed) turnaroundTimes.push(completed - created);
+      }
+    });
+
+    const avg = (arr) => arr.length ? Math.floor(arr.reduce((a,b)=>a+b,0) / arr.length / 60000) : 0;
+    const max = (arr) => arr.length ? Math.floor(Math.max(...arr) / 60000) : 0;
+
+    return {
+      totalGenerated: filtered.length,
+      completed: completedCount,
+      avgWait: avg(waitTimes),
+      maxWait: max(waitTimes),
+      avgTurnaround: avg(turnaroundTimes),
+      serviceCounts,
+      counterCounts,
+      hourCounts
+    };
+  }, [tickets, timeframe]);
+
+  const maxHourVal = Math.max(...Object.values(stats.hourCounts), 1);
+  const maxCounterVal = Math.max(...Object.values(stats.counterCounts), 1);
+
   return (
-    <div className="h-[calc(100vh-64px)] bg-gray-100 p-4 md:p-6 print:hidden">
-      <h1 className="text-2xl font-bold mb-6">Analytics</h1>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white p-6 rounded-xl border shadow-sm">
-          <div className="text-sm text-gray-500 font-bold uppercase tracking-wider">Total Served Tickets</div>
-          <div className="text-4xl font-black text-gray-800 mt-2">{stats.total}</div>
+    <div className="h-auto min-h-[calc(100vh-64px)] bg-gray-100 p-4 md:p-8 print:hidden">
+      <div className="max-w-6xl mx-auto space-y-6">
+        
+        {/* Header & Controls */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 rounded-2xl shadow-sm border border-gray-200">
+          <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2"><BarChart3 className="w-6 h-6 text-blue-600"/> Analytics Dashboard</h1>
+          <div className="flex bg-gray-100 p-1 rounded-lg self-stretch sm:self-auto">
+            {['today', 'week', 'month', 'all'].map(tf => (
+              <button 
+                key={tf} 
+                onClick={() => setTimeframe(tf)} 
+                className={`flex-1 sm:flex-none px-4 py-2 text-sm font-bold rounded-md capitalize transition-all ${timeframe === tf ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+              >
+                {tf === 'all' ? 'All Time' : tf === 'today' ? 'Today' : `This ${tf}`}
+              </button>
+            ))}
+          </div>
         </div>
+
+        {/* Top KPI Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm flex flex-col justify-center">
+            <div className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-1 flex items-center gap-2"><Ticket className="w-4 h-4"/> Total Tickets</div>
+            <div className="text-4xl font-black text-gray-900">{stats.totalGenerated}</div>
+            <div className="text-xs text-green-600 font-bold mt-2 bg-green-50 w-max px-2 py-1 rounded">{stats.completed} Completed</div>
+          </div>
+          <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm flex flex-col justify-center">
+            <div className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-1 flex items-center gap-2"><Timer className="w-4 h-4"/> Avg Wait Time</div>
+            <div className="flex items-baseline gap-1"><span className="text-4xl font-black text-blue-600">{stats.avgWait}</span><span className="text-gray-500 font-bold">min</span></div>
+            <div className="text-xs text-gray-400 font-bold mt-2">Max: {stats.maxWait} min</div>
+          </div>
+          <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm flex flex-col justify-center">
+            <div className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-1 flex items-center gap-2"><Clock className="w-4 h-4"/> Avg Turnaround</div>
+            <div className="flex items-baseline gap-1"><span className="text-4xl font-black text-purple-600">{stats.avgTurnaround}</span><span className="text-gray-500 font-bold">min</span></div>
+            <div className="text-xs text-gray-400 font-bold mt-2">From print to complete</div>
+          </div>
+          <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm flex flex-col justify-center">
+            <div className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-1 flex items-center gap-2"><TrendingUp className="w-4 h-4"/> Completion Rate</div>
+            <div className="text-4xl font-black text-emerald-500">{stats.totalGenerated ? Math.round((stats.completed / stats.totalGenerated) * 100) : 0}%</div>
+            <div className="w-full bg-gray-100 rounded-full h-2 mt-3 overflow-hidden"><div className="bg-emerald-500 h-2 rounded-full" style={{width: `${stats.totalGenerated ? (stats.completed / stats.totalGenerated) * 100 : 0}%`}}></div></div>
+          </div>
+        </div>
+
+        {/* Breakdown Row */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Service Breakdown */}
+          <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
+            <h3 className="text-lg font-bold text-gray-800 mb-6 flex items-center gap-2"><Info className="w-5 h-5 text-gray-400"/> Services Requested</h3>
+            <div className="space-y-5">
+              {SERVICES.map(s => {
+                const count = stats.serviceCounts[s.id] || 0;
+                const percentage = stats.totalGenerated ? (count / stats.totalGenerated) * 100 : 0;
+                return (
+                  <div key={s.id}>
+                    <div className="flex justify-between text-sm font-bold text-gray-700 mb-1">
+                      <span>{s.id}: {s.name}</span>
+                      <span>{count}</span>
+                    </div>
+                    <div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden">
+                      <div className={`${s.color.replace('hover:', '')} h-3 rounded-full transition-all duration-1000`} style={{width: `${percentage}%`}}></div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Workload by Counter */}
+          <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
+            <h3 className="text-lg font-bold text-gray-800 mb-6 flex items-center gap-2"><UserCheck className="w-5 h-5 text-gray-400"/> Workload by Counter</h3>
+            <div className="space-y-4">
+              {STATIONS.map(station => {
+                const count = stats.counterCounts[station] || 0;
+                const width = maxCounterVal > 0 ? (count / maxCounterVal) * 100 : 0;
+                return (
+                  <div key={station} className="flex items-center gap-4">
+                    <div className="w-24 text-sm font-bold text-gray-600 truncate">{station}</div>
+                    <div className="flex-1 flex items-center gap-2">
+                      <div className="h-6 bg-teal-500 rounded transition-all duration-1000" style={{width: `${width}%`, minWidth: count > 0 ? '1rem' : '0'}}></div>
+                      <span className="text-sm font-bold text-gray-800">{count}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* Peak Hours Chart */}
+        <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
+          <h3 className="text-lg font-bold text-gray-800 mb-6 flex items-center gap-2"><Calendar className="w-5 h-5 text-gray-400"/> Peak Hours Analysis (Tickets Generated)</h3>
+          <div className="h-48 flex items-end gap-2 md:gap-4 mt-8 pb-6 border-b border-gray-100">
+            {Object.entries(stats.hourCounts).map(([hour, count]) => {
+              const height = (count / maxHourVal) * 100;
+              const timeLabel = hour > 12 ? `${hour-12} PM` : hour == 12 ? '12 PM' : `${hour} AM`;
+              return (
+                <div key={hour} className="flex-1 flex flex-col items-center justify-end h-full group relative">
+                  {/* Tooltip */}
+                  <div className="opacity-0 group-hover:opacity-100 absolute -top-8 bg-gray-800 text-white text-xs font-bold px-2 py-1 rounded transition-opacity">
+                    {count} tickets
+                  </div>
+                  {/* Bar */}
+                  <div 
+                    className="w-full bg-blue-500 hover:bg-blue-400 rounded-t-md transition-all duration-1000" 
+                    style={{height: `${height}%`, minHeight: count > 0 ? '4px' : '0'}}
+                  ></div>
+                  {/* Label */}
+                  <div className="absolute -bottom-6 text-[10px] sm:text-xs font-medium text-gray-400 -rotate-45 sm:rotate-0 origin-top-left sm:origin-center mt-2">
+                    {timeLabel}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
       </div>
     </div>
   );

@@ -5,7 +5,7 @@ import {
   Home, ChevronRight, Activity, LogOut, ArrowUpDown, 
   Timer, FileEdit, BarChart3, TrendingUp, Users, Database,
   Lock, KeyRound, AlertTriangle, Edit3, Menu, RotateCcw,
-  Volume2, VolumeX, Trash2
+  Volume2, VolumeX, Trash2, Play
 } from 'lucide-react';
 
 // --- FIREBASE CLOUD SYNC IMPORTS ---
@@ -295,7 +295,7 @@ export default function App() {
       return newTicket;
     } catch (error) {
       console.error("Firebase write error:", error);
-      alert("Error generating ticket! Please check your Firebase Database Rules to ensure writes are allowed.");
+      alert("Error generating ticket! Please check your Firebase connection or database rules.");
       return null;
     }
   };
@@ -443,12 +443,11 @@ export default function App() {
     const [printedTicket, setPrintedTicket] = useState(null);
     const [isGenerating, setIsGenerating] = useState(false);
 
-    // Chrome Fix: Automatic timeout printing can be blocked. 
     useEffect(() => {
       if (printedTicket) {
         const timer = setTimeout(() => {
           window.print();
-        }, 800); 
+        }, 500); 
         return () => clearTimeout(timer);
       }
     }, [printedTicket]);
@@ -457,11 +456,15 @@ export default function App() {
       if (isGenerating) return;
       setIsGenerating(true);
       
-      const ticket = await generateTicket(serviceId);
-      setIsGenerating(false);
-      
-      if(!ticket) return; // If Firebase fails, don't show the popup
-      setPrintedTicket(ticket);
+      try {
+        const ticket = await generateTicket(serviceId);
+        if (ticket) {
+          setPrintedTicket(ticket);
+        }
+      } finally {
+        // ALWAYS release the button block so it doesn't get stuck
+        setIsGenerating(false);
+      }
     };
 
     return (
@@ -498,9 +501,9 @@ export default function App() {
                   <h2 className="text-sm font-bold text-gray-500 uppercase tracking-widest mb-2">您的籌號</h2>
                   <div className="text-7xl font-black text-blue-600 my-4 tracking-tighter">{printedTicket.id}</div>
                   
-                  {/* Chrome Manual Print Fallback Button */}
-                  <button onClick={() => window.print()} className="mt-2 bg-blue-50 text-blue-700 font-bold py-3 px-6 rounded-full flex items-center justify-center gap-2 hover:bg-blue-100 transition-colors w-full border border-blue-200 mb-6">
-                    <Printer className="w-5 h-5" /> Click here to Print
+                  {/* Robust Chrome Manual Print Fallback Button */}
+                  <button onClick={() => window.print()} className="mt-2 bg-blue-50 text-blue-700 font-bold py-3 px-6 rounded-full flex items-center justify-center gap-2 hover:bg-blue-100 transition-colors w-full border border-blue-200 mb-6 shadow-sm active:scale-95">
+                    <Printer className="w-5 h-5" /> Click to Print Ticket
                   </button>
                   
                   <button onClick={() => setPrintedTicket(null)} className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold w-full py-4 rounded-xl transition-colors">Close 關閉</button>
@@ -511,8 +514,9 @@ export default function App() {
         </div>
 
         {/* --- PRINTABLE TICKET --- */}
+        {/* Removed print:absolute to solve Chrome blank page bug */}
         {printedTicket && (
-          <div className="hidden print:block text-black text-center w-full max-w-[80mm] mx-auto p-4 font-sans bg-white z-[9999]">
+          <div className="hidden print:block text-black text-center w-full max-w-[80mm] mx-auto p-4 font-sans bg-white z-[9999] m-0">
             <div className="border-b-2 border-black pb-4 mb-4">
               <h1 className="text-base font-bold leading-tight">{PHARMACY_NAME}</h1>
               <h2 className="text-lg font-bold mt-1">{PHARMACY_NAME_ZH}</h2>
@@ -540,53 +544,74 @@ export default function App() {
     const currentTicket = tickets.find(t => t.id === lastCallEvent.id);
     const [flash, setFlash] = useState(false);
     const [isAudioEnabled, setIsAudioEnabled] = useState(false);
+    const [showOverlay, setShowOverlay] = useState(true);
     
     const ticketsRef = useRef(tickets);
     useEffect(() => { ticketsRef.current = tickets; }, [tickets]);
 
+    // Forceful Sound Enable Screen (Bypasses Chrome Security)
+    const handleStartMonitor = () => {
+      if (window.speechSynthesis) {
+        const initVoice = new SpeechSynthesisUtterance('Monitor active');
+        initVoice.volume = 0; 
+        window.speechSynthesis.speak(initVoice);
+      }
+      setIsAudioEnabled(true);
+      setShowOverlay(false);
+    };
+
     useEffect(() => {
-      if (lastCallEvent.time && lastCallEvent.id) {
+      if (lastCallEvent.time && lastCallEvent.id && !showOverlay) {
         setFlash(true);
         const timer = setTimeout(() => setFlash(false), 3000);
 
         if (isAudioEnabled && window.speechSynthesis) {
           const t = ticketsRef.current.find(t => t.id === lastCallEvent.id);
           if (t && t.calledByCounter) {
-            // Chrome Audio Bug Fix: Force cancel any stuck audio in the queue before speaking
+            
+            // Chrome Bug Fix: Clear stuck voices before speaking
             window.speechSynthesis.cancel();
 
-            const formattedTicket = t.id.split('').join(' '); 
-            
-            const msgEn = new SpeechSynthesisUtterance(`Ticket ${formattedTicket}, please proceed to ${t.calledByCounter}.`);
-            msgEn.lang = 'en-US';
-            msgEn.rate = 0.85;
+            // Timeout wrapper prevents Chrome from canceling the new speech
+            setTimeout(() => {
+              const formattedTicket = t.id.split('').join(' '); 
+              
+              const msgEn = new SpeechSynthesisUtterance(`Ticket ${formattedTicket}, please proceed to ${t.calledByCounter}.`);
+              msgEn.lang = 'en-US';
+              msgEn.rate = 0.85;
 
-            let zhCounter = t.calledByCounter;
-            if (zhCounter.includes('Counter')) zhCounter = zhCounter.replace('Counter ', '') + '號櫃位';
-            if (zhCounter.includes('Room')) zhCounter = zhCounter.replace('Room ', '') + '號房間';
-            
-            const msgZh = new SpeechSynthesisUtterance(`請 ${formattedTicket} 號客, 到 ${zhCounter}。`);
-            msgZh.lang = 'zh-HK';
-            msgZh.rate = 0.85;
+              let zhCounter = t.calledByCounter;
+              if (zhCounter.includes('Counter')) zhCounter = zhCounter.replace('Counter ', '') + '號櫃位';
+              if (zhCounter.includes('Room')) zhCounter = zhCounter.replace('Room ', '') + '號房間';
+              
+              const msgZh = new SpeechSynthesisUtterance(`請 ${formattedTicket} 號客, 到 ${zhCounter}。`);
+              msgZh.lang = 'zh-HK';
+              msgZh.rate = 0.85;
 
-            window.speechSynthesis.speak(msgEn);
-            window.speechSynthesis.speak(msgZh);
+              window.speechSynthesis.speak(msgEn);
+              window.speechSynthesis.speak(msgZh);
+            }, 100);
           }
         }
         return () => clearTimeout(timer);
       }
-    }, [lastCallEvent.time]);
+    }, [lastCallEvent.time, isAudioEnabled, showOverlay]);
 
-    const handleToggleAudio = () => {
-      if (!isAudioEnabled) {
-        window.speechSynthesis.cancel();
-        window.speechSynthesis.resume();
-        const initVoice = new SpeechSynthesisUtterance('Sound active');
-        initVoice.volume = 0; 
-        window.speechSynthesis.speak(initVoice);
-      }
-      setIsAudioEnabled(!isAudioEnabled);
-    };
+    // Full screen overlay blocks access until sound is enabled
+    if (showOverlay) {
+      return (
+        <div className="h-[calc(100vh-64px)] bg-slate-900 flex flex-col items-center justify-center p-6 print:hidden">
+          <div className="max-w-lg w-full bg-slate-800 p-10 rounded-3xl shadow-2xl text-center border border-slate-700">
+            <Volume2 className="w-20 h-20 text-blue-500 mx-auto mb-6 animate-pulse" />
+            <h2 className="text-3xl font-bold text-white mb-4">Start Monitor</h2>
+            <p className="text-slate-400 mb-8 text-lg">Chrome requires you to click once before it allows audio to play.</p>
+            <button onClick={handleStartMonitor} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-6 rounded-2xl text-xl shadow-[0_0_30px_rgba(37,99,235,0.4)] transition-all active:scale-95 flex items-center justify-center gap-3">
+              <Play className="w-6 h-6 fill-current" /> Enable Sound & Start
+            </button>
+          </div>
+        </div>
+      );
+    }
 
     return (
       <div className="min-h-[calc(100vh-64px)] bg-slate-900 text-white flex flex-col lg:flex-row overflow-hidden print:hidden">
@@ -595,10 +620,6 @@ export default function App() {
           <div className="lg:absolute top-8 left-12 mb-8 lg:mb-0 w-full lg:w-auto flex justify-between lg:block">
             <h2 className="text-xl md:text-2xl font-bold text-slate-400 flex items-center gap-3 justify-center"><Activity className="w-6 h-6 md:w-8 md:h-8 text-blue-500" />{PHARMACY_NAME}</h2>
           </div>
-
-          <button onClick={handleToggleAudio} className={`absolute top-6 right-6 md:top-8 md:right-12 flex items-center gap-2 px-4 py-2 md:px-6 md:py-3 rounded-full font-bold text-sm md:text-base transition-all ${isAudioEnabled ? 'bg-green-500/20 text-green-400 border border-green-500/30' : 'bg-red-500/20 text-red-400 border border-red-500/30 animate-pulse shadow-lg shadow-red-500/20'}`}>
-            {isAudioEnabled ? <><Volume2 className="w-5 h-5 md:w-6 md:h-6"/> Sound ON</> : <><VolumeX className="w-5 h-5 md:w-6 md:h-6"/> Sound OFF (Click to Enable)</>}
-          </button>
 
           <div className="mt-10 lg:mt-0">
             <h1 className="text-3xl md:text-5xl font-medium text-slate-400 uppercase tracking-widest text-center">Now Calling 現在叫號</h1>

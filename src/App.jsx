@@ -429,19 +429,22 @@ export default function App() {
 
   const KioskView = () => {
     const [printedTicket, setPrintedTicket] = useState(null);
+
+    // Watch for the ticket to load into state, THEN trigger the print dialog.
+    // This solves the bug where Safari opens the dialog before the screen paints.
+    useEffect(() => {
+      if (printedTicket) {
+        const timer = setTimeout(() => {
+          window.print();
+        }, 800); // 800ms gives plenty of time for iOS to draw the popup UI
+        return () => clearTimeout(timer);
+      }
+    }, [printedTicket]);
+
     const handlePrint = async (serviceId) => {
       const ticket = await generateTicket(serviceId);
       if(!ticket) return;
       setPrintedTicket(ticket);
-      
-      // Delay printing slightly to let the browser draw the ticket UI first
-      setTimeout(() => { 
-        window.print(); 
-      }, 500);
-      
-      // I HAVE REMOVED THE 5-SECOND AUTO-CLEAR TIMER.
-      // This gives Safari as much time as it needs to generate the preview.
-      // The ticket will now stay on screen until the customer taps "Close".
     };
 
     return (
@@ -491,9 +494,9 @@ export default function App() {
         </div>
 
         {/* --- PRINTABLE TICKET --- */}
-        {/* We use print:absolute print:top-0 print:left-0 to ensure it snaps cleanly to the printer margins */}
+        {/* Fix for iOS Safari Print Bug: We use `fixed -left-[9999px]` so it's always "drawn" in the DOM, then reposition it for printing */}
         {printedTicket && (
-          <div className="hidden print:block print:absolute print:top-0 print:left-0 text-black text-center w-full max-w-[80mm] mx-auto p-4 font-sans bg-white z-[9999]">
+          <div className="fixed -left-[9999px] top-0 print:static print:w-[80mm] text-black text-center w-full mx-auto p-4 font-sans bg-white z-[9999]">
             <div className="border-b-2 border-black pb-4 mb-4">
               <h1 className="text-base font-bold leading-tight">{PHARMACY_NAME}</h1>
               <h2 className="text-lg font-bold mt-1">{PHARMACY_NAME_ZH}</h2>
@@ -522,28 +525,23 @@ export default function App() {
     const [flash, setFlash] = useState(false);
     const [isAudioEnabled, setIsAudioEnabled] = useState(false);
     
-    // Store latest tickets in ref so voice effect doesn't trigger on every queue update
     const ticketsRef = useRef(tickets);
     useEffect(() => { ticketsRef.current = tickets; }, [tickets]);
 
     useEffect(() => {
       if (lastCallEvent.time && lastCallEvent.id) {
-        // Visual Flash
         setFlash(true);
         const timer = setTimeout(() => setFlash(false), 3000);
 
-        // Voice Announcement
         if (isAudioEnabled) {
           const t = ticketsRef.current.find(t => t.id === lastCallEvent.id);
           if (t && t.calledByCounter) {
-            const formattedTicket = t.id.split('').join(' '); // Speaks "A 0 0 1" instead of "A one"
+            const formattedTicket = t.id.split('').join(' '); 
             
-            // English Voice
             const msgEn = new SpeechSynthesisUtterance(`Ticket ${formattedTicket}, please proceed to ${t.calledByCounter}.`);
             msgEn.lang = 'en-US';
             msgEn.rate = 0.85;
 
-            // Cantonese Voice
             let zhCounter = t.calledByCounter;
             if (zhCounter.includes('Counter')) zhCounter = zhCounter.replace('Counter ', '') + '號櫃位';
             if (zhCounter.includes('Room')) zhCounter = zhCounter.replace('Room ', '') + '號房間';
@@ -552,6 +550,11 @@ export default function App() {
             msgZh.lang = 'zh-HK';
             msgZh.rate = 0.85;
 
+            // Safari Bug Fix: Attach utterances to window so they aren't deleted before playing
+            window.__ttsEn = msgEn;
+            window.__ttsZh = msgZh;
+
+            window.speechSynthesis.resume(); 
             window.speechSynthesis.speak(msgEn);
             window.speechSynthesis.speak(msgZh);
           }
@@ -562,7 +565,10 @@ export default function App() {
 
     const handleToggleAudio = () => {
       if (!isAudioEnabled) {
-        const initVoice = new SpeechSynthesisUtterance('');
+        // Force unlock the Audio API on Apple devices
+        window.speechSynthesis.resume();
+        const initVoice = new SpeechSynthesisUtterance('Sound active');
+        initVoice.volume = 0.01; // Extremely quiet but non-zero
         window.speechSynthesis.speak(initVoice);
       }
       setIsAudioEnabled(!isAudioEnabled);
@@ -576,7 +582,7 @@ export default function App() {
             <h2 className="text-xl md:text-2xl font-bold text-slate-400 flex items-center gap-3 justify-center"><Activity className="w-6 h-6 md:w-8 md:h-8 text-blue-500" />{PHARMACY_NAME}</h2>
           </div>
 
-          <button onClick={handleToggleAudio} className={`absolute top-6 right-6 md:top-8 md:right-12 flex items-center gap-2 px-4 py-2 md:px-6 md:py-3 rounded-full font-bold text-sm md:text-base transition-all ${isAudioEnabled ? 'bg-green-500/20 text-green-400 border border-green-500/30' : 'bg-red-500/20 text-red-400 border border-red-500/30 animate-pulse'}`}>
+          <button onClick={handleToggleAudio} className={`absolute top-6 right-6 md:top-8 md:right-12 flex items-center gap-2 px-4 py-2 md:px-6 md:py-3 rounded-full font-bold text-sm md:text-base transition-all ${isAudioEnabled ? 'bg-green-500/20 text-green-400 border border-green-500/30' : 'bg-red-500/20 text-red-400 border border-red-500/30 animate-pulse shadow-lg shadow-red-500/20'}`}>
             {isAudioEnabled ? <><Volume2 className="w-5 h-5 md:w-6 md:h-6"/> Sound ON</> : <><VolumeX className="w-5 h-5 md:w-6 md:h-6"/> Sound OFF (Click to Enable)</>}
           </button>
 

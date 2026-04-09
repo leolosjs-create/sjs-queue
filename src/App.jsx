@@ -212,7 +212,9 @@ export default function App() {
   const [currentTime, setCurrentTime] = useState(new Date());
 
   useEffect(() => {
-    signInAnonymously(auth).catch(err => console.error("Auth error:", err));
+    signInAnonymously(auth).catch(err => {
+      console.error("Auth error:", err);
+    });
     const unsubscribe = onAuthStateChanged(auth, setUser);
     return () => unsubscribe();
   }, []);
@@ -260,32 +262,42 @@ export default function App() {
   const completedTickets = tickets.filter(t => ['completed', 'missed'].includes(t.status));
 
   const generateTicket = async (serviceId) => {
-    if (!user) return;
-    const service = SERVICES.find(s => s.id === serviceId);
-    const newNum = (counters[serviceId] || 0) + 1;
+    if (!user) {
+      alert("Database connection is not ready. Please wait a moment or refresh the page.");
+      return null;
+    }
     
-    const counterRef = doc(db, 'artifacts', appId, 'public', 'data', 'counters', serviceId);
-    await setDoc(counterRef, { count: newNum });
-    
-    const ticketId = `${serviceId}${newNum.toString().padStart(3, '0')}`;
-    const newTicket = {
-      id: ticketId,
-      type: serviceId,
-      serviceName: service.name,
-      serviceNameZh: service.nameZh,
-      status: 'waiting', 
-      createdAt: new Date().toISOString(),
-      calledAt: null,
-      arrivedAt: null,
-      completedAt: null,
-      calledByCounter: null,
-      memo: '',
-      isReturned: false
-    };
-    
-    const ticketRef = doc(db, 'artifacts', appId, 'public', 'data', 'tickets', ticketId);
-    await setDoc(ticketRef, newTicket);
-    return newTicket;
+    try {
+      const service = SERVICES.find(s => s.id === serviceId);
+      const newNum = (counters[serviceId] || 0) + 1;
+      
+      const counterRef = doc(db, 'artifacts', appId, 'public', 'data', 'counters', serviceId);
+      await setDoc(counterRef, { count: newNum });
+      
+      const ticketId = `${serviceId}${newNum.toString().padStart(3, '0')}`;
+      const newTicket = {
+        id: ticketId,
+        type: serviceId,
+        serviceName: service.name,
+        serviceNameZh: service.nameZh,
+        status: 'waiting', 
+        createdAt: new Date().toISOString(),
+        calledAt: null,
+        arrivedAt: null,
+        completedAt: null,
+        calledByCounter: null,
+        memo: '',
+        isReturned: false
+      };
+      
+      const ticketRef = doc(db, 'artifacts', appId, 'public', 'data', 'tickets', ticketId);
+      await setDoc(ticketRef, newTicket);
+      return newTicket;
+    } catch (error) {
+      console.error("Firebase write error:", error);
+      alert("Error generating ticket! Please check your Firebase Database Rules to ensure writes are allowed.");
+      return null;
+    }
   };
 
   const updateTicketStatus = async (ticketId, newStatus, counterName = null) => {
@@ -429,21 +441,26 @@ export default function App() {
 
   const KioskView = () => {
     const [printedTicket, setPrintedTicket] = useState(null);
+    const [isGenerating, setIsGenerating] = useState(false);
 
-    // Watch for the ticket to load into state, THEN trigger the print dialog.
-    // This solves the bug where Safari opens the dialog before the screen paints.
+    // Chrome Fix: Automatic timeout printing can be blocked. 
     useEffect(() => {
       if (printedTicket) {
         const timer = setTimeout(() => {
           window.print();
-        }, 800); // 800ms gives plenty of time for iOS to draw the popup UI
+        }, 800); 
         return () => clearTimeout(timer);
       }
     }, [printedTicket]);
 
     const handlePrint = async (serviceId) => {
+      if (isGenerating) return;
+      setIsGenerating(true);
+      
       const ticket = await generateTicket(serviceId);
-      if(!ticket) return;
+      setIsGenerating(false);
+      
+      if(!ticket) return; // If Firebase fails, don't show the popup
       setPrintedTicket(ticket);
     };
 
@@ -460,7 +477,7 @@ export default function App() {
               {SERVICES.map(service => {
                 const Icon = service.icon;
                 return (
-                  <button key={service.id} onClick={() => handlePrint(service.id)} className={`w-full ${service.color} ${service.hover} text-white p-5 md:p-6 rounded-2xl shadow-md transition-all active:scale-95 flex items-center justify-between`}>
+                  <button key={service.id} onClick={() => handlePrint(service.id)} disabled={isGenerating} className={`w-full ${service.color} ${service.hover} text-white p-5 md:p-6 rounded-2xl shadow-md transition-all active:scale-95 flex items-center justify-between disabled:opacity-70`}>
                     <div className="flex items-center gap-4 md:gap-6 text-left">
                       <div className="bg-white/20 p-3 md:p-4 rounded-full"><Icon className="w-8 h-8 md:w-10 md:h-10" /></div>
                       <div>
@@ -481,10 +498,10 @@ export default function App() {
                   <h2 className="text-sm font-bold text-gray-500 uppercase tracking-widest mb-2">您的籌號</h2>
                   <div className="text-7xl font-black text-blue-600 my-4 tracking-tighter">{printedTicket.id}</div>
                   
-                  <div className="flex items-center justify-center gap-3 text-gray-800 font-bold text-xl mt-4 mb-2">
-                    <Printer className="w-6 h-6 animate-pulse text-blue-600" /> Printing... 列印中
-                  </div>
-                  <p className="text-gray-500 mb-8 text-sm">Please take your ticket from the machine.</p>
+                  {/* Chrome Manual Print Fallback Button */}
+                  <button onClick={() => window.print()} className="mt-2 bg-blue-50 text-blue-700 font-bold py-3 px-6 rounded-full flex items-center justify-center gap-2 hover:bg-blue-100 transition-colors w-full border border-blue-200 mb-6">
+                    <Printer className="w-5 h-5" /> Click here to Print
+                  </button>
                   
                   <button onClick={() => setPrintedTicket(null)} className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold w-full py-4 rounded-xl transition-colors">Close 關閉</button>
                 </div>
@@ -494,9 +511,8 @@ export default function App() {
         </div>
 
         {/* --- PRINTABLE TICKET --- */}
-        {/* Fix for iOS Safari Print Bug: We use `fixed -left-[9999px]` so it's always "drawn" in the DOM, then reposition it for printing */}
         {printedTicket && (
-          <div className="fixed -left-[9999px] top-0 print:static print:w-[80mm] text-black text-center w-full mx-auto p-4 font-sans bg-white z-[9999]">
+          <div className="hidden print:block text-black text-center w-full max-w-[80mm] mx-auto p-4 font-sans bg-white z-[9999]">
             <div className="border-b-2 border-black pb-4 mb-4">
               <h1 className="text-base font-bold leading-tight">{PHARMACY_NAME}</h1>
               <h2 className="text-lg font-bold mt-1">{PHARMACY_NAME_ZH}</h2>
@@ -533,9 +549,12 @@ export default function App() {
         setFlash(true);
         const timer = setTimeout(() => setFlash(false), 3000);
 
-        if (isAudioEnabled) {
+        if (isAudioEnabled && window.speechSynthesis) {
           const t = ticketsRef.current.find(t => t.id === lastCallEvent.id);
           if (t && t.calledByCounter) {
+            // Chrome Audio Bug Fix: Force cancel any stuck audio in the queue before speaking
+            window.speechSynthesis.cancel();
+
             const formattedTicket = t.id.split('').join(' '); 
             
             const msgEn = new SpeechSynthesisUtterance(`Ticket ${formattedTicket}, please proceed to ${t.calledByCounter}.`);
@@ -550,11 +569,6 @@ export default function App() {
             msgZh.lang = 'zh-HK';
             msgZh.rate = 0.85;
 
-            // Safari Bug Fix: Attach utterances to window so they aren't deleted before playing
-            window.__ttsEn = msgEn;
-            window.__ttsZh = msgZh;
-
-            window.speechSynthesis.resume(); 
             window.speechSynthesis.speak(msgEn);
             window.speechSynthesis.speak(msgZh);
           }
@@ -565,10 +579,10 @@ export default function App() {
 
     const handleToggleAudio = () => {
       if (!isAudioEnabled) {
-        // Force unlock the Audio API on Apple devices
+        window.speechSynthesis.cancel();
         window.speechSynthesis.resume();
         const initVoice = new SpeechSynthesisUtterance('Sound active');
-        initVoice.volume = 0.01; // Extremely quiet but non-zero
+        initVoice.volume = 0; 
         window.speechSynthesis.speak(initVoice);
       }
       setIsAudioEnabled(!isAudioEnabled);

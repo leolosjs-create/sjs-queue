@@ -500,6 +500,8 @@ const PanelView = ({
 
   return (
     <div className="h-auto lg:h-[calc(100vh-64px)] bg-gray-100 p-4 lg:p-6 flex flex-col lg:flex-row gap-4 lg:gap-6 overflow-y-auto lg:overflow-hidden print:hidden">
+      
+      {/* Left Column (Main Control Area) */}
       <div className="flex-1 flex flex-col gap-4 lg:gap-6 lg:overflow-hidden">
         
         {/* Top Control Panel */}
@@ -531,43 +533,42 @@ const PanelView = ({
               activeTickets.filter(t => t.calledByCounter === panelRoom).map(ticket => {
                 const displayId = ticket.ticketNumber || ticket.id;
                 return (
-                <div key={ticket.id} className={`p-4 rounded-xl border-l-4 shadow-sm flex flex-col xl:flex-row gap-4 xl:gap-0 justify-between items-start xl:items-center ${ticket.status === 'calling' ? 'bg-yellow-50 border-yellow-400' : 'bg-green-50 border-green-500'}`}>
-                  <div className="w-full xl:w-auto">
-                    <div className="flex items-center justify-between xl:justify-start gap-4">
-                      <div className="text-3xl font-black text-gray-900">{displayId}</div>
-                      {/* Mobile Buttons for Active Tickets */}
-                      <div className="flex gap-2 xl:hidden">
-                        <button onClick={() => setMemoModal({ id: ticket.id, displayId: displayId, text: ticket.memo || '' })} className="p-2 bg-white rounded-lg border border-gray-200 text-gray-500 hover:text-blue-600 shadow-sm"><Edit3 className="w-5 h-5" /></button>
-                        <button onClick={() => setReturnModal({ id: ticket.id, displayId: displayId })} className="p-2 bg-white rounded-lg border border-gray-200 text-orange-500 hover:text-orange-600 shadow-sm"><RotateCcw className="w-5 h-5" /></button>
+                  <div key={ticket.id} className={`p-4 rounded-xl border-l-4 shadow-sm flex flex-col xl:flex-row gap-4 xl:gap-0 justify-between items-start xl:items-center ${ticket.status === 'calling' ? 'bg-yellow-50 border-yellow-400' : 'bg-green-50 border-green-500'}`}>
+                    <div className="w-full xl:w-auto">
+                      <div className="flex items-center justify-between xl:justify-start gap-4">
+                        <div className="text-3xl font-black text-gray-900">{displayId}</div>
+                        {/* Mobile Buttons for Active Tickets */}
+                        <div className="flex gap-2 xl:hidden">
+                          <button onClick={() => setMemoModal({ id: ticket.id, displayId: displayId, text: ticket.memo || '' })} className="p-2 bg-white rounded-lg border border-gray-200 text-gray-500 hover:text-blue-600 shadow-sm"><Edit3 className="w-5 h-5" /></button>
+                          <button onClick={() => setReturnModal({ id: ticket.id, displayId: displayId })} className="p-2 bg-white rounded-lg border border-gray-200 text-orange-500 hover:text-orange-600 shadow-sm"><RotateCcw className="w-5 h-5" /></button>
+                        </div>
                       </div>
+                      <div className="text-sm text-gray-600 font-medium">{ticket.serviceNameZh}</div>
+                      {ticket.memo && <div className="mt-2 text-blue-700 bg-white px-3 py-1.5 rounded-lg text-sm border border-blue-200 shadow-sm flex items-start gap-2"><FileEdit className="w-4 h-4 shrink-0 mt-0.5" /> <span className="break-words">{ticket.memo}</span></div>}
                     </div>
-                    <div className="text-sm text-gray-600 font-medium">{ticket.serviceNameZh}</div>
-                    {ticket.memo && <div className="mt-2 text-blue-700 bg-white px-3 py-1.5 rounded-lg text-sm border border-blue-200 shadow-sm flex items-start gap-2"><FileEdit className="w-4 h-4 shrink-0 mt-0.5" /> <span className="break-words">{ticket.memo}</span></div>}
+                    <div className="flex flex-wrap sm:flex-nowrap gap-2 w-full xl:w-auto mt-2 xl:mt-0">
+                      {/* Desktop Buttons for Active Tickets */}
+                      <button onClick={() => setMemoModal({ id: ticket.id, displayId: displayId, text: ticket.memo || '' })} className="hidden xl:flex p-3 bg-white rounded-lg border border-gray-200 text-gray-500 hover:text-blue-600 hover:bg-blue-50 transition-colors shadow-sm" title="Add Memo"><Edit3 className="w-5 h-5" /></button>
+                      <button onClick={() => setReturnModal({ id: ticket.id, displayId: displayId })} className="hidden xl:flex p-3 bg-white rounded-lg border border-gray-200 text-orange-500 hover:text-white hover:bg-orange-500 transition-colors shadow-sm" title="Return to Queue"><RotateCcw className="w-5 h-5" /></button>
+                      
+                      {ticket.status === 'calling' ? (
+                        <>
+                          <button onClick={()=>updateTicketStatus(ticket.id, 'calling', panelRoom)} className="p-3 bg-white border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 flex-1 sm:flex-none shadow-sm" title="Recall (Ring Bell)"><BellRing className="w-5 h-5 mx-auto" /></button>
+                          <button onClick={()=>updateTicketStatus(ticket.id, 'arrived')} className="bg-blue-600 text-white font-bold px-6 py-3 rounded-lg hover:bg-blue-700 flex-1 sm:flex-none shadow-sm active:scale-95">Arrived</button>
+                          <button onClick={()=>updateTicketStatus(ticket.id, 'missed')} className="bg-red-50 border border-red-200 text-red-600 font-bold px-4 py-3 rounded-lg hover:bg-red-100 flex-1 sm:flex-none">Miss</button>
+                        </>
+                      ) : (
+                        <button onClick={()=>updateTicketStatus(ticket.id, 'completed')} className="bg-green-600 text-white font-bold px-8 py-3 rounded-lg hover:bg-green-700 w-full xl:w-auto shadow-sm active:scale-95 flex items-center justify-center gap-2"><CheckCircle className="w-5 h-5"/> Complete</button>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex flex-wrap sm:flex-nowrap gap-2 w-full xl:w-auto mt-2 xl:mt-0">
-                    {/* Desktop Buttons for Active Tickets */}
-                    <button onClick={() => setMemoModal({ id: ticket.id, displayId: displayId, text: ticket.memo || '' })} className="hidden xl:flex p-3 bg-white rounded-lg border border-gray-200 text-gray-500 hover:text-blue-600 hover:bg-blue-50 transition-colors shadow-sm" title="Add Memo"><Edit3 className="w-5 h-5" /></button>
-                    <button onClick={() => setReturnModal({ id: ticket.id, displayId: displayId })} className="hidden xl:flex p-3 bg-white rounded-lg border border-gray-200 text-orange-500 hover:text-white hover:bg-orange-500 transition-colors shadow-sm" title="Return to Queue"><RotateCcw className="w-5 h-5" /></button>
-                    
-                    {ticket.status === 'calling' ? (
-                      <>
-                        <button onClick={()=>updateTicketStatus(ticket.id, 'calling', panelRoom)} className="p-3 bg-white border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 flex-1 sm:flex-none shadow-sm" title="Recall (Ring Bell)"><BellRing className="w-5 h-5 mx-auto" /></button>
-                        <button onClick={()=>updateTicketStatus(ticket.id, 'arrived')} className="bg-blue-600 text-white font-bold px-6 py-3 rounded-lg hover:bg-blue-700 flex-1 sm:flex-none shadow-sm active:scale-95">Arrived</button>
-                        <button onClick={()=>updateTicketStatus(ticket.id, 'missed')} className="bg-red-50 border border-red-200 text-red-600 font-bold px-4 py-3 rounded-lg hover:bg-red-100 flex-1 sm:flex-none">Miss</button>
-                    </>
-                  ) : (
-                    <button onClick={()=>updateTicketStatus(ticket.id, 'completed')} className="bg-green-600 text-white font-bold px-8 py-3 rounded-lg hover:bg-green-700 w-full xl:w-auto shadow-sm active:scale-95 flex items-center justify-center gap-2"><CheckCircle className="w-5 h-5"/> Complete</button>
-                  )}
-                </div>
-              </div>
-              );
-            })
-          )}
+                );
+              })
+            )}
           </div>
         </div>
-      </div>
 
-      {/* Completed Tickets Expandable Dashboard */}
+        {/* Completed Tickets Expandable Dashboard */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 flex flex-col shrink-0 overflow-hidden transition-all duration-300">
           <button 
             onClick={() => setIsHistoryExpanded(!isHistoryExpanded)} 
@@ -613,7 +614,6 @@ const PanelView = ({
             </div>
           )}
         </div>
-
       </div>
 
       {/* Waiting Queue Sidebar */}

@@ -199,7 +199,7 @@ const DeleteDialog = ({ deleteModal, onClose, onConfirm }) => {
 const HomeView = ({ setCurrentView, isStaffAuthenticated }) => (
   <div className="flex flex-col items-center justify-center min-h-[calc(100vh-64px)] bg-gray-50 p-4 md:p-8 print:hidden">
     <div className="max-w-5xl w-full text-center space-y-6 md:space-y-8">
-      <img src={LOGO_PATH} alt="Pharmacy Logo" className="h-24 md:h-32 mx-auto object-contain mb-2" onError={(e) => e.target.style.display='none'} />
+      <img src={LOGO_PATH} alt="Pharmacy Logo" className="h-72 md:h-96 mx-auto object-contain mb-6" onError={(e) => e.target.style.display='none'} />
       <h1 className="text-3xl md:text-5xl font-bold text-gray-800 tracking-tight leading-tight">{PHARMACY_NAME}</h1>
       <h2 className="text-xl md:text-3xl text-gray-600 font-medium">{PHARMACY_NAME_ZH}</h2>
       <div className="flex items-center justify-center gap-2 mt-4 text-green-700 bg-green-100 px-4 py-2 rounded-full w-max mx-auto shadow-sm border border-green-200">
@@ -295,7 +295,7 @@ const KioskView = ({ generateTicket, counters }) => {
       <div className="min-h-[calc(100vh-64px)] bg-gray-100 flex flex-col items-center justify-center p-4 md:p-6 print:hidden">
         <div className="max-w-3xl w-full bg-white rounded-3xl shadow-2xl overflow-hidden relative">
           <div className="bg-blue-900 p-6 md:p-8 text-center text-white flex flex-col items-center">
-            <img src={LOGO_PATH} alt="Logo" className="h-16 md:h-20 mb-4 object-contain" onError={(e) => e.target.style.display='none'} />
+            <img src={LOGO_PATH} alt="Logo" className="h-48 md:h-60 mb-6 object-contain" onError={(e) => e.target.style.display='none'} />
             <h1 className="text-2xl md:text-4xl font-bold mb-2">Welcome 歡迎光臨</h1>
             <p className="text-blue-100 text-sm md:text-lg">Please select a service to get a ticket</p>
             <p className="text-blue-100 text-sm md:text-lg">請選擇服務以領取籌號</p>
@@ -340,7 +340,7 @@ const KioskView = ({ generateTicket, counters }) => {
       {printedTicket && (
         <div className="hidden print:block text-black text-center w-full max-w-[80mm] mx-auto p-4 font-sans bg-white z-[9999] m-0">
           <div className="border-b-2 border-black pb-4 mb-4 flex flex-col items-center">
-            <img src={LOGO_PATH} alt="Logo" className="h-12 object-contain mb-2" onError={(e) => e.target.style.display='none'} />
+            <img src={LOGO_PATH} alt="Logo" className="h-36 object-contain mb-4" onError={(e) => e.target.style.display='none'} />
             <h1 className="text-base font-bold leading-tight">{PHARMACY_NAME}</h1>
             <h2 className="text-lg font-bold mt-1">{PHARMACY_NAME_ZH}</h2>
           </div>
@@ -440,7 +440,7 @@ const MonitorView = ({ tickets, waitingTickets, lastCallEvent }) => {
       <div className="w-full lg:w-2/3 p-8 md:p-12 flex flex-col justify-center items-center border-b lg:border-b-0 lg:border-r border-slate-700 relative">
         <div className="lg:absolute top-8 left-12 mb-8 lg:mb-0 w-full lg:w-auto flex justify-between lg:block">
           <div className="flex items-center gap-4 justify-center">
-             <img src={LOGO_PATH} alt="Logo" className="h-12 md:h-16 object-contain bg-white/10 rounded-xl p-2 hidden sm:block" onError={(e) => e.target.style.display='none'} />
+             <img src={LOGO_PATH} alt="Logo" className="h-36 md:h-48 object-contain bg-white/10 rounded-xl p-4 hidden sm:block" onError={(e) => e.target.style.display='none'} />
              <h2 className="text-xl md:text-2xl font-bold text-slate-400 flex items-center gap-3"><Activity className="w-6 h-6 md:w-8 md:h-8 text-blue-500 hidden sm:block" />{PHARMACY_NAME}</h2>
           </div>
         </div>
@@ -1101,7 +1101,7 @@ export default function App() {
     <div className="min-h-screen font-sans bg-gray-50 print:bg-white">
       <nav className="h-16 bg-white border-b flex items-center justify-between px-4 md:px-6 shadow-sm print:hidden relative z-50">
         <div className="flex items-center gap-2 md:gap-3 cursor-pointer" onClick={() => setCurrentView('home')}>
-          <img src={LOGO_PATH} alt="Logo" className="h-8 w-auto object-contain rounded" onError={(e) => e.target.style.display='none'} />
+          <img src={LOGO_PATH} alt="Logo" className="h-12 w-auto object-contain rounded" onError={(e) => e.target.style.display='none'} />
           <div className="bg-teal-600 p-1.5 md:p-2 rounded-lg hidden sm:block"><Ticket className="w-5 h-5 text-white" /></div>
           <span className="font-bold text-lg md:text-xl text-gray-800 truncate">SJS Queue</span>
         </div>

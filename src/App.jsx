@@ -5,7 +5,7 @@ import {
   Home, ChevronRight, Activity, LogOut, ArrowUpDown, 
   Timer, FileEdit, BarChart3, TrendingUp, Users, Database,
   Lock, KeyRound, AlertTriangle, Edit3, Menu, RotateCcw,
-  Volume2, VolumeX, Trash2, Play, Calendar
+  Volume2, VolumeX, Trash2, Play, Calendar, History
 } from 'lucide-react';
 
 // --- FIREBASE CLOUD SYNC IMPORTS ---
@@ -63,14 +63,21 @@ const getWaitTimeMinutes = (createdAt, currentTime) => {
 // --- SUB-COMPONENTS & DIALOGS ---
 const MemoDialog = ({ memoModal, onClose, onSave }) => {
   const [text, setText] = useState(memoModal.text);
+  
   return (
     <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4">
       <div className="bg-white rounded-xl p-6 shadow-2xl w-full max-w-md animate-in zoom-in-95 duration-200">
         <div className="flex items-center gap-3 mb-4">
-          <div className="bg-blue-100 p-2 rounded-lg text-blue-600"><FileEdit className="w-5 h-5" /></div>
-          <h3 className="text-lg font-bold text-gray-800">Memo for Ticket {memoModal.ticketId}</h3>
+          <div className="bg-blue-100 p-2 rounded-lg text-blue-600">
+            <FileEdit className="w-5 h-5" />
+          </div>
+          <h3 className="text-lg font-bold text-gray-800">
+            Memo for Ticket {memoModal.displayId}
+          </h3>
         </div>
-        <p className="text-sm text-gray-500 mb-4">Add patient name, Rx number, or purpose of visit.</p>
+        <p className="text-sm text-gray-500 mb-4">
+          Add patient name, Rx number, or purpose of visit.
+        </p>
         <textarea
           className="w-full border border-gray-200 rounded-lg p-3 min-h-[100px] mb-4 focus:ring-2 focus:ring-blue-500 outline-none resize-none text-base"
           placeholder="e.g. Rx 12345, Patient Name..."
@@ -80,7 +87,7 @@ const MemoDialog = ({ memoModal, onClose, onSave }) => {
         />
         <div className="flex justify-end gap-3">
           <button onClick={onClose} className="px-4 py-3 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">Cancel</button>
-          <button onClick={() => onSave(memoModal.ticketId, text)} className="px-6 py-3 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">Save Memo</button>
+          <button onClick={() => onSave(memoModal.id, text)} className="px-6 py-3 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">Save Memo</button>
         </div>
       </div>
     </div>
@@ -89,14 +96,21 @@ const MemoDialog = ({ memoModal, onClose, onSave }) => {
 
 const ReturnDialog = ({ returnModal, onClose, onConfirm }) => {
   const [text, setText] = useState("");
+  
   return (
     <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4">
       <div className="bg-white rounded-xl p-6 shadow-2xl w-full max-w-md animate-in zoom-in-95 duration-200">
         <div className="flex items-center gap-3 mb-4">
-          <div className="bg-orange-100 p-2 rounded-lg text-orange-600"><RotateCcw className="w-5 h-5" /></div>
-          <h3 className="text-lg font-bold text-gray-800">Return Ticket {returnModal} to Queue</h3>
+          <div className="bg-orange-100 p-2 rounded-lg text-orange-600">
+            <RotateCcw className="w-5 h-5" />
+          </div>
+          <h3 className="text-lg font-bold text-gray-800">
+            Return Ticket {returnModal.displayId} to Queue
+          </h3>
         </div>
-        <p className="text-sm text-gray-500 mb-4">Add a remark. This ticket will be sent back to the waiting list.</p>
+        <p className="text-sm text-gray-500 mb-4">
+          Add a remark (e.g., waiting for doctor, missing info). This ticket will be sent back to the waiting list.
+        </p>
         <textarea
           className="w-full border border-gray-200 rounded-lg p-3 min-h-[100px] mb-4 focus:ring-2 focus:ring-orange-500 outline-none resize-none text-base"
           placeholder="Reason for returning to queue..."
@@ -106,7 +120,7 @@ const ReturnDialog = ({ returnModal, onClose, onConfirm }) => {
         />
         <div className="flex justify-end gap-3">
           <button onClick={onClose} className="px-4 py-3 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">Cancel</button>
-          <button onClick={() => onConfirm(returnModal, text)} className="px-6 py-3 text-sm font-medium bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors">Confirm Return</button>
+          <button onClick={() => onConfirm(returnModal.id, text)} className="px-6 py-3 text-sm font-medium bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors">Confirm Return</button>
         </div>
       </div>
     </div>
@@ -117,26 +131,44 @@ const DeleteDialog = ({ deleteModal, onClose, onConfirm }) => {
   const [selectedReason, setSelectedReason] = useState("Customer left");
   const [customReason, setCustomReason] = useState("");
 
-  const COMMON_REASONS = ["Customer left", "Printed by mistake", "Duplicate ticket", "Other"];
+  const COMMON_REASONS = [
+    "Customer left",
+    "Printed by mistake",
+    "Duplicate ticket",
+    "Other"
+  ];
 
   const handleConfirm = () => {
     const finalReason = selectedReason === "Other" ? customReason : selectedReason;
-    onConfirm(deleteModal, finalReason || "No reason provided");
+    onConfirm(deleteModal.id, finalReason || "No reason provided");
   };
 
   return (
     <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4">
       <div className="bg-white rounded-xl p-6 shadow-2xl w-full max-w-md animate-in zoom-in-95 duration-200">
         <div className="flex items-center gap-3 mb-4">
-          <div className="bg-red-100 p-2 rounded-lg text-red-600"><Trash2 className="w-5 h-5" /></div>
-          <h3 className="text-lg font-bold text-gray-800">Cancel Ticket {deleteModal}?</h3>
+          <div className="bg-red-100 p-2 rounded-lg text-red-600">
+            <Trash2 className="w-5 h-5" />
+          </div>
+          <h3 className="text-lg font-bold text-gray-800">
+            Cancel Ticket {deleteModal.displayId}?
+          </h3>
         </div>
-        <p className="text-sm text-gray-500 mb-4">Are you sure you want to cancel this ticket?</p>
+        <p className="text-sm text-gray-500 mb-4">
+          Are you sure you want to cancel this ticket? Please select a reason below.
+        </p>
         
         <div className="space-y-2 mb-4">
           {COMMON_REASONS.map((reason) => (
             <label key={reason} className="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
-              <input type="radio" name="deleteReason" value={reason} checked={selectedReason === reason} onChange={(e) => setSelectedReason(e.target.value)} className="w-4 h-4 text-red-600 focus:ring-red-500"/>
+              <input 
+                type="radio" 
+                name="deleteReason" 
+                value={reason}
+                checked={selectedReason === reason}
+                onChange={(e) => setSelectedReason(e.target.value)}
+                className="w-4 h-4 text-red-600 focus:ring-red-500"
+              />
               <span className="text-gray-700 text-sm font-medium">{reason}</span>
             </label>
           ))}
@@ -228,11 +260,9 @@ const KioskView = ({ generateTicket, counters }) => {
       printLock.current = true;
       const timer = setTimeout(() => {
         window.print();
-        // Since window.print() is a blocking call in browsers, this timeout 
-        // effectively starts counting down AFTER the print dialog is dismissed!
         setTimeout(() => {
           setPrintedTicket(null);
-        }, 5000);
+        }, 3000);
       }, 300); 
       return () => clearTimeout(timer);
     }
@@ -255,7 +285,7 @@ const KioskView = ({ generateTicket, counters }) => {
     window.print();
     setTimeout(() => {
       setPrintedTicket(null);
-    }, 5000);
+    }, 3000);
   };
 
   return (
@@ -290,7 +320,7 @@ const KioskView = ({ generateTicket, counters }) => {
               <div className="bg-white p-8 rounded-3xl shadow-2xl w-full max-w-sm text-center border-t-8 border-blue-600 flex flex-col items-center animate-in zoom-in-95 duration-200">
                 <h2 className="text-sm font-bold text-gray-500 uppercase tracking-widest mb-1">Your Ticket Number</h2>
                 <h2 className="text-sm font-bold text-gray-500 uppercase tracking-widest mb-2">您的籌號</h2>
-                <div className="text-7xl font-black text-blue-600 my-4 tracking-tighter">{printedTicket.id}</div>
+                <div className="text-7xl font-black text-blue-600 my-4 tracking-tighter">{printedTicket.ticketNumber || printedTicket.id}</div>
                 
                 <button onClick={handleManualPrint} className="mt-2 bg-blue-50 text-blue-700 font-bold py-3 px-6 rounded-full flex items-center justify-center gap-2 hover:bg-blue-100 transition-colors w-full border border-blue-200 mb-6 shadow-sm active:scale-95">
                   <Printer className="w-5 h-5" /> Click to Print Ticket
@@ -316,7 +346,7 @@ const KioskView = ({ generateTicket, counters }) => {
           </div>
           <div className="border-y-4 border-black py-6 my-4">
             <div className="text-sm font-bold uppercase mb-1">Your Ticket Number 您的籌號</div>
-            <div className="text-[6rem] font-black leading-none">{printedTicket.id}</div>
+            <div className="text-[6rem] font-black leading-none">{printedTicket.ticketNumber || printedTicket.id}</div>
           </div>
           <div className="text-sm font-bold">{formatDate(printedTicket.createdAt)}</div>
           <div className="text-sm mb-6">{formatTime(printedTicket.createdAt)}</div>
@@ -331,6 +361,8 @@ const KioskView = ({ generateTicket, counters }) => {
 
 const MonitorView = ({ tickets, waitingTickets, lastCallEvent }) => {
   const currentTicket = tickets.find(t => t.id === lastCallEvent.id);
+  const displayId = currentTicket ? (currentTicket.ticketNumber || currentTicket.id) : '---';
+
   const [flash, setFlash] = useState(false);
   const [isAudioEnabled, setIsAudioEnabled] = useState(false);
   const [showOverlay, setShowOverlay] = useState(true);
@@ -360,7 +392,8 @@ const MonitorView = ({ tickets, waitingTickets, lastCallEvent }) => {
           window.speechSynthesis.cancel();
 
           setTimeout(() => {
-            const formattedTicket = t.id.split('').join(' '); 
+            const tNumber = t.ticketNumber || t.id;
+            const formattedTicket = tNumber.split('').join(' '); 
             
             const msgEn = new SpeechSynthesisUtterance(`Ticket ${formattedTicket}, please proceed to ${t.calledByCounter}.`);
             msgEn.lang = 'en-US';
@@ -407,7 +440,7 @@ const MonitorView = ({ tickets, waitingTickets, lastCallEvent }) => {
         <div className="mt-10 lg:mt-0">
           <h1 className="text-3xl md:text-5xl font-medium text-slate-400 uppercase tracking-widest text-center">Now Calling 現在叫號</h1>
           <div className={`transition-all duration-300 text-center ${flash ? 'scale-110 text-yellow-400 drop-shadow-[0_0_30px_rgba(250,204,21,0.5)]' : 'text-white'}`}>
-            <div className="text-[8rem] md:text-[15rem] lg:text-[18rem] font-black leading-none my-4 md:my-8">{currentTicket ? currentTicket.id : '---'}</div>
+            <div className="text-[8rem] md:text-[15rem] lg:text-[18rem] font-black leading-none my-4 md:my-8">{displayId}</div>
           </div>
           {currentTicket && currentTicket.calledByCounter && (
             <div className="text-center animate-in fade-in slide-in-from-bottom-4">
@@ -423,7 +456,7 @@ const MonitorView = ({ tickets, waitingTickets, lastCallEvent }) => {
         <div className="space-y-4 overflow-y-auto flex-1">
           {[...waitingTickets].sort((a,b) => new Date(a.createdAt) - new Date(b.createdAt)).slice(0, 8).map((ticket) => (
             <div key={ticket.id} className="flex justify-between items-center bg-slate-700/50 p-4 md:p-6 rounded-xl border border-slate-600/50">
-              <span className="text-3xl md:text-4xl font-bold text-slate-200">{ticket.id}</span>
+              <span className="text-3xl md:text-4xl font-bold text-slate-200">{ticket.ticketNumber || ticket.id}</span>
               <span className="text-slate-400 text-base md:text-lg truncate pl-4">{ticket.serviceNameZh}</span>
             </div>
           ))}
@@ -435,11 +468,13 @@ const MonitorView = ({ tickets, waitingTickets, lastCallEvent }) => {
 };
 
 const PanelView = ({ 
-  panelRoom, setPanelRoom, waitingTickets, activeTickets, 
+  panelRoom, setPanelRoom, waitingTickets, activeTickets, completedTickets,
   queueSortBy, setQueueSortBy, updateTicketStatus, 
   setMemoModal, setReturnModal, setDeleteModal, 
   currentTime, setIsStaffAuthenticated, setCurrentView 
 }) => {
+  const [isHistoryExpanded, setIsHistoryExpanded] = useState(false);
+
   if (!panelRoom) return (
     <div className="min-h-[calc(100vh-64px)] bg-gray-100 flex items-center justify-center p-4 print:hidden">
       <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md text-center">
@@ -455,7 +490,11 @@ const PanelView = ({
   );
 
   const sortedWaitingTickets = [...waitingTickets].sort((a, b) => {
-    if (queueSortBy === 'number') return a.id.localeCompare(b.id);
+    if (queueSortBy === 'number') {
+      const aNum = a.ticketNumber || a.id;
+      const bNum = b.ticketNumber || b.id;
+      return aNum.localeCompare(bNum);
+    }
     return new Date(a.createdAt) - new Date(b.createdAt);
   });
 
@@ -475,7 +514,7 @@ const PanelView = ({
               return (
                 <button key={service.id} onClick={() => next && updateTicketStatus(next.id, 'calling', panelRoom)} disabled={!next} className={`p-4 rounded-xl border-2 text-left transition-all ${next ? 'border-blue-300 bg-blue-50 hover:bg-blue-100 shadow-sm active:scale-95 cursor-pointer' : 'border-gray-100 bg-gray-50 opacity-50 cursor-not-allowed'}`}>
                   <div className="text-xs font-bold text-blue-600 uppercase tracking-wider mb-1 truncate">{service.name}</div>
-                  <div className="text-3xl font-black text-gray-900">{next ? next.id : '--'}</div>
+                  <div className="text-3xl font-black text-gray-900">{next ? (next.ticketNumber || next.id) : '--'}</div>
                 </button>
               );
             })}
@@ -489,15 +528,17 @@ const PanelView = ({
             {activeTickets.filter(t => t.calledByCounter === panelRoom).length === 0 ? (
               <div className="text-center text-gray-400 py-10 italic">No tickets currently being served.</div>
             ) : (
-              activeTickets.filter(t => t.calledByCounter === panelRoom).map(ticket => (
+              activeTickets.filter(t => t.calledByCounter === panelRoom).map(ticket => {
+                const displayId = ticket.ticketNumber || ticket.id;
+                return (
                 <div key={ticket.id} className={`p-4 rounded-xl border-l-4 shadow-sm flex flex-col xl:flex-row gap-4 xl:gap-0 justify-between items-start xl:items-center ${ticket.status === 'calling' ? 'bg-yellow-50 border-yellow-400' : 'bg-green-50 border-green-500'}`}>
                   <div className="w-full xl:w-auto">
                     <div className="flex items-center justify-between xl:justify-start gap-4">
-                      <div className="text-3xl font-black text-gray-900">{ticket.id}</div>
+                      <div className="text-3xl font-black text-gray-900">{displayId}</div>
                       {/* Mobile Buttons for Active Tickets */}
                       <div className="flex gap-2 xl:hidden">
-                        <button onClick={() => setMemoModal({ticketId: ticket.id, text: ticket.memo || ''})} className="p-2 bg-white rounded-lg border border-gray-200 text-gray-500 hover:text-blue-600 shadow-sm"><Edit3 className="w-5 h-5" /></button>
-                        <button onClick={() => setReturnModal(ticket.id)} className="p-2 bg-white rounded-lg border border-gray-200 text-orange-500 hover:text-orange-600 shadow-sm"><RotateCcw className="w-5 h-5" /></button>
+                        <button onClick={() => setMemoModal({ id: ticket.id, displayId: displayId, text: ticket.memo || '' })} className="p-2 bg-white rounded-lg border border-gray-200 text-gray-500 hover:text-blue-600 shadow-sm"><Edit3 className="w-5 h-5" /></button>
+                        <button onClick={() => setReturnModal({ id: ticket.id, displayId: displayId })} className="p-2 bg-white rounded-lg border border-gray-200 text-orange-500 hover:text-orange-600 shadow-sm"><RotateCcw className="w-5 h-5" /></button>
                       </div>
                     </div>
                     <div className="text-sm text-gray-600 font-medium">{ticket.serviceNameZh}</div>
@@ -505,24 +546,74 @@ const PanelView = ({
                   </div>
                   <div className="flex flex-wrap sm:flex-nowrap gap-2 w-full xl:w-auto mt-2 xl:mt-0">
                     {/* Desktop Buttons for Active Tickets */}
-                    <button onClick={() => setMemoModal({ticketId: ticket.id, text: ticket.memo || ''})} className="hidden xl:flex p-3 bg-white rounded-lg border border-gray-200 text-gray-500 hover:text-blue-600 hover:bg-blue-50 transition-colors shadow-sm" title="Add Memo"><Edit3 className="w-5 h-5" /></button>
-                    <button onClick={() => setReturnModal(ticket.id)} className="hidden xl:flex p-3 bg-white rounded-lg border border-gray-200 text-orange-500 hover:text-white hover:bg-orange-500 transition-colors shadow-sm" title="Return to Queue"><RotateCcw className="w-5 h-5" /></button>
+                    <button onClick={() => setMemoModal({ id: ticket.id, displayId: displayId, text: ticket.memo || '' })} className="hidden xl:flex p-3 bg-white rounded-lg border border-gray-200 text-gray-500 hover:text-blue-600 hover:bg-blue-50 transition-colors shadow-sm" title="Add Memo"><Edit3 className="w-5 h-5" /></button>
+                    <button onClick={() => setReturnModal({ id: ticket.id, displayId: displayId })} className="hidden xl:flex p-3 bg-white rounded-lg border border-gray-200 text-orange-500 hover:text-white hover:bg-orange-500 transition-colors shadow-sm" title="Return to Queue"><RotateCcw className="w-5 h-5" /></button>
                     
                     {ticket.status === 'calling' ? (
                       <>
                         <button onClick={()=>updateTicketStatus(ticket.id, 'calling', panelRoom)} className="p-3 bg-white border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 flex-1 sm:flex-none shadow-sm" title="Recall (Ring Bell)"><BellRing className="w-5 h-5 mx-auto" /></button>
                         <button onClick={()=>updateTicketStatus(ticket.id, 'arrived')} className="bg-blue-600 text-white font-bold px-6 py-3 rounded-lg hover:bg-blue-700 flex-1 sm:flex-none shadow-sm active:scale-95">Arrived</button>
                         <button onClick={()=>updateTicketStatus(ticket.id, 'missed')} className="bg-red-50 border border-red-200 text-red-600 font-bold px-4 py-3 rounded-lg hover:bg-red-100 flex-1 sm:flex-none">Miss</button>
-                      </>
-                    ) : (
-                      <button onClick={()=>updateTicketStatus(ticket.id, 'completed')} className="bg-green-600 text-white font-bold px-8 py-3 rounded-lg hover:bg-green-700 w-full xl:w-auto shadow-sm active:scale-95 flex items-center justify-center gap-2"><CheckCircle className="w-5 h-5"/> Complete</button>
-                    )}
-                  </div>
+                    </>
+                  ) : (
+                    <button onClick={()=>updateTicketStatus(ticket.id, 'completed')} className="bg-green-600 text-white font-bold px-8 py-3 rounded-lg hover:bg-green-700 w-full xl:w-auto shadow-sm active:scale-95 flex items-center justify-center gap-2"><CheckCircle className="w-5 h-5"/> Complete</button>
+                  )}
                 </div>
-              ))
-            )}
+              </div>
+              );
+            })
+          )}
           </div>
         </div>
+      </div>
+
+      {/* Completed Tickets Expandable Dashboard */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 flex flex-col shrink-0 overflow-hidden transition-all duration-300">
+          <button 
+            onClick={() => setIsHistoryExpanded(!isHistoryExpanded)} 
+            className="p-4 flex justify-between items-center bg-gray-50 hover:bg-gray-100 transition-colors w-full text-left"
+          >
+            <div className="font-bold text-gray-700 flex items-center gap-2">
+              <History className="w-5 h-5 text-purple-500" />
+              Recent History Log
+            </div>
+            <ChevronRight className={`w-5 h-5 text-gray-400 transition-transform ${isHistoryExpanded ? 'rotate-90' : ''}`} />
+          </button>
+
+          {isHistoryExpanded && (
+            <div className="p-4 border-t border-gray-200 max-h-80 overflow-y-auto space-y-2 bg-white">
+              {completedTickets.length === 0 ? (
+                <div className="text-center text-gray-400 py-4 italic">No recent tickets.</div>
+              ) : (
+                [...completedTickets]
+                  .sort((a, b) => new Date(b.completedAt || 0) - new Date(a.completedAt || 0))
+                  .slice(0, 50)
+                  .map(t => (
+                    <div key={t.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-100 gap-2 sm:gap-4">
+                      <div className="flex items-center gap-3 shrink-0">
+                        <span className={`text-xl font-black ${t.status === 'completed' ? 'text-green-600' : t.status === 'missed' ? 'text-orange-500' : 'text-red-500'}`}>
+                          {t.ticketNumber || t.id}
+                        </span>
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider border ${t.status === 'completed' ? 'bg-green-100 text-green-700 border-green-200' : t.status === 'missed' ? 'bg-orange-100 text-orange-700 border-orange-200' : 'bg-red-100 text-red-700 border-red-200'}`}>
+                          {t.status}
+                        </span>
+                      </div>
+                      
+                      <div className="flex-1 min-w-0 text-sm text-gray-600 flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4">
+                        {t.calledByCounter && <span className="font-bold text-gray-800 whitespace-nowrap"><UserCheck className="w-3 h-3 inline mr-1 text-gray-400"/>{t.calledByCounter}</span>}
+                        {t.memo && <span className="text-gray-500 truncate" title={t.memo}><FileEdit className="w-3 h-3 inline mr-1"/>{t.memo}</span>}
+                      </div>
+                      
+                      <div className="text-xs text-gray-400 whitespace-nowrap font-medium flex items-center gap-1 shrink-0">
+                        <Clock className="w-3 h-3"/> {formatTime(t.completedAt)}
+                      </div>
+                    </div>
+                  ))
+              )}
+            </div>
+          )}
+        </div>
+
       </div>
 
       {/* Waiting Queue Sidebar */}
@@ -542,12 +633,13 @@ const PanelView = ({
             sortedWaitingTickets.map(t => {
               const waitTime = getWaitTimeMinutes(t.createdAt, currentTime);
               const isOvertime = waitTime > 10;
+              const displayId = t.ticketNumber || t.id;
               
               return (
-                <div key={t.id} onContextMenu={(e) => { e.preventDefault(); setMemoModal({ ticketId: t.id, text: t.memo || '' }); }} className={`p-4 transition-colors flex justify-between items-center group relative border-l-4 ${isOvertime ? 'bg-red-50 border-red-500' : 'bg-white border-transparent hover:bg-gray-50'}`}>
+                <div key={t.id} onContextMenu={(e) => { e.preventDefault(); setMemoModal({ id: t.id, displayId: displayId, text: t.memo || '' }); }} className={`p-4 transition-colors flex justify-between items-center group relative border-l-4 ${isOvertime ? 'bg-red-50 border-red-500' : 'bg-white border-transparent hover:bg-gray-50'}`}>
                   <div className="flex-1 min-w-0 pr-4">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <div className={`text-xl font-black ${isOvertime ? 'text-red-700' : 'text-gray-900'}`}>{t.id}</div>
+                      <div className={`text-xl font-black ${isOvertime ? 'text-red-700' : 'text-gray-900'}`}>{displayId}</div>
                       {isOvertime && <AlertTriangle className="w-5 h-5 text-red-600 animate-pulse" title="Waiting over 10 minutes" />}
                       {t.isReturned && <span className="bg-orange-100 text-orange-700 text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider border border-orange-200">Returned</span>}
                     </div>
@@ -556,8 +648,8 @@ const PanelView = ({
                   </div>
                   <div className="flex gap-2 shrink-0 items-center">
                     <button onClick={() => updateTicketStatus(t.id, 'calling', panelRoom)} className={`px-4 py-2 font-bold rounded-lg text-sm transition-all shadow-sm active:scale-95 ${isOvertime ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-blue-100 text-blue-700 hover:bg-blue-600 hover:text-white lg:opacity-0 lg:group-hover:opacity-100'}`}>Call</button>
-                    <button onClick={() => setMemoModal({ ticketId: t.id, text: t.memo || '' })} className="px-3 py-2 bg-white border border-gray-200 text-gray-500 rounded-lg text-sm flex items-center justify-center hover:text-blue-600 lg:opacity-0 lg:group-hover:opacity-100 transition-all shadow-sm" title="Edit Memo"><Edit3 className="w-4 h-4"/></button>
-                    <button onClick={() => setDeleteModal(t.id)} className="px-3 py-2 bg-white border border-gray-200 text-red-500 rounded-lg text-sm flex items-center justify-center hover:text-white hover:bg-red-500 lg:opacity-0 lg:group-hover:opacity-100 transition-all shadow-sm" title="Cancel Ticket"><Trash2 className="w-4 h-4"/></button>
+                    <button onClick={() => setMemoModal({ id: t.id, displayId: displayId, text: t.memo || '' })} className="px-3 py-2 bg-white border border-gray-200 text-gray-500 rounded-lg text-sm flex items-center justify-center hover:text-blue-600 lg:opacity-0 lg:group-hover:opacity-100 transition-all shadow-sm" title="Edit Memo"><Edit3 className="w-4 h-4"/></button>
+                    <button onClick={() => setDeleteModal({ id: t.id, displayId: displayId })} className="px-3 py-2 bg-white border border-gray-200 text-red-500 rounded-lg text-sm flex items-center justify-center hover:text-white hover:bg-red-500 lg:opacity-0 lg:group-hover:opacity-100 transition-all shadow-sm" title="Cancel Ticket"><Trash2 className="w-4 h-4"/></button>
                   </div>
                 </div>
               );
@@ -596,10 +688,11 @@ const ReportsView = ({ tickets }) => {
     STATIONS.forEach(s => counterCounts[s] = 0);
 
     let completedCount = 0;
+    let cancelledCount = 0;
 
     filtered.forEach(t => {
       // Service Count Breakdown
-      if (t.type && (t.status === 'completed' || t.status === 'missed' || t.status === 'waiting' || t.status === 'calling' || t.status === 'arrived')) {
+      if (t.type && (t.status === 'completed' || t.status === 'missed' || t.status === 'waiting' || t.status === 'calling' || t.status === 'arrived' || t.status === 'cancelled')) {
         serviceCounts[t.type] = (serviceCounts[t.type] || 0) + 1;
       }
       
@@ -607,6 +700,11 @@ const ReportsView = ({ tickets }) => {
       const created = new Date(t.createdAt).getTime();
       const hour = new Date(t.createdAt).getHours();
       if (hourCounts[hour] !== undefined) hourCounts[hour]++;
+
+      // Count Cancelled/Missed
+      if (t.status === 'cancelled' || t.status === 'missed') {
+        cancelledCount++;
+      }
 
       // Workload and Time calculations (Only for completed tickets)
       if (t.status === 'completed') {
@@ -630,6 +728,7 @@ const ReportsView = ({ tickets }) => {
     return {
       totalGenerated: filtered.length,
       completed: completedCount,
+      cancelled: cancelledCount,
       avgWait: avg(waitTimes),
       maxWait: max(waitTimes),
       avgTurnaround: avg(turnaroundTimes),
@@ -667,7 +766,10 @@ const ReportsView = ({ tickets }) => {
           <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm flex flex-col justify-center">
             <div className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-1 flex items-center gap-2"><Ticket className="w-4 h-4"/> Total Tickets</div>
             <div className="text-4xl font-black text-gray-900">{stats.totalGenerated}</div>
-            <div className="text-xs text-green-600 font-bold mt-2 bg-green-50 w-max px-2 py-1 rounded">{stats.completed} Completed</div>
+            <div className="flex items-center gap-2 mt-2 flex-wrap">
+              <div className="text-xs text-green-700 font-bold bg-green-50 px-2 py-1 rounded border border-green-100">{stats.completed} Completed</div>
+              <div className="text-xs text-red-700 font-bold bg-red-50 px-2 py-1 rounded border border-red-100">{stats.cancelled} Cancelled</div>
+            </div>
           </div>
           <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm flex flex-col justify-center">
             <div className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-1 flex items-center gap-2"><Timer className="w-4 h-4"/> Avg Wait Time</div>
@@ -827,8 +929,46 @@ export default function App() {
     return () => clearInterval(timer);
   }, []);
 
+  // Daily Auto-Clear and Reset Logic
+  useEffect(() => {
+    if (!user || tickets.length === 0) return;
+    
+    const todayStr = currentTime.toDateString();
+    
+    // 1. Cancel stale active/waiting tickets from previous days
+    const staleTickets = tickets.filter(t => 
+      ['waiting', 'calling', 'arrived'].includes(t.status) && 
+      new Date(t.createdAt).toDateString() !== todayStr
+    );
+    
+    if (staleTickets.length > 0) {
+      staleTickets.forEach(async (t) => {
+        const ticketRef = doc(db, 'artifacts', appId, 'public', 'data', 'tickets', t.id);
+        const finalMemo = t.memo ? `${t.memo} | [System] Auto-cleared daily reset` : `[System] Auto-cleared daily reset`;
+        await setDoc(ticketRef, { ...t, status: 'cancelled', completedAt: new Date().toISOString(), memo: finalMemo });
+      });
+    }
+
+    // 2. Safely reset daily counters back to 0 if we cross midnight
+    const latestTicket = [...tickets].sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt))[0];
+    if (latestTicket && new Date(latestTicket.createdAt).toDateString() !== todayStr) {
+      let needsReset = false;
+      SERVICES.forEach(s => { if (counters[s.id] > 0) needsReset = true; });
+      
+      if (needsReset) {
+        SERVICES.forEach(async (s) => {
+           if (counters[s.id] > 0) {
+             const counterRef = doc(db, 'artifacts', appId, 'public', 'data', 'counters', s.id);
+             await setDoc(counterRef, { count: 0 });
+           }
+        });
+      }
+    }
+  }, [currentTime, user]); // Driven reliably by the 30-second clock tick
+
   const waitingTickets = tickets.filter(t => t.status === 'waiting');
   const activeTickets = tickets.filter(t => ['calling', 'arrived'].includes(t.status));
+  const completedTickets = tickets.filter(t => ['completed', 'missed', 'cancelled'].includes(t.status));
 
   const generateTicket = async (serviceId) => {
     if (!user) {
@@ -843,9 +983,12 @@ export default function App() {
       const counterRef = doc(db, 'artifacts', appId, 'public', 'data', 'counters', serviceId);
       await setDoc(counterRef, { count: newNum });
       
-      const ticketId = `${serviceId}${newNum.toString().padStart(3, '0')}`;
+      const ticketNumber = `${serviceId}${newNum.toString().padStart(3, '0')}`;
+      const docId = `ticket_${Date.now()}`;
+      
       const newTicket = {
-        id: ticketId,
+        id: docId,
+        ticketNumber: ticketNumber,
         type: serviceId,
         serviceName: service.name,
         serviceNameZh: service.nameZh,
@@ -859,7 +1002,7 @@ export default function App() {
         isReturned: false
       };
       
-      const ticketRef = doc(db, 'artifacts', appId, 'public', 'data', 'tickets', ticketId);
+      const ticketRef = doc(db, 'artifacts', appId, 'public', 'data', 'tickets', docId);
       await setDoc(ticketRef, newTicket);
       return newTicket;
     } catch (error) {
@@ -997,6 +1140,7 @@ export default function App() {
           setPanelRoom={setPanelRoom} 
           waitingTickets={waitingTickets} 
           activeTickets={activeTickets} 
+          completedTickets={completedTickets}
           queueSortBy={queueSortBy} 
           setQueueSortBy={setQueueSortBy} 
           updateTicketStatus={updateTicketStatus} 

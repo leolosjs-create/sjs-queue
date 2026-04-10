@@ -356,7 +356,7 @@ const KioskView = ({ generateTicket, counters }) => {
           </div>
           <div className="border-y-4 border-black py-6 my-4">
             <div className="text-sm font-bold uppercase mb-1">您的籌號 YOUR TICKET NUMBER</div>
-            <div className="text-[6.5rem] font-black leading-none">{printedTicket.ticketNumber || printedTicket.id}</div>
+            <div className="text-[6rem] font-black leading-none">{printedTicket.ticketNumber || printedTicket.id}</div>
           </div>
           <div className="text-sm font-bold">{formatDate(printedTicket.createdAt)}</div>
           <div className="text-sm mb-6">{formatTime(printedTicket.createdAt)}</div>
@@ -442,44 +442,51 @@ const MonitorView = ({ tickets, waitingTickets, lastCallEvent }) => {
   }
 
   return (
-    <div className="min-h-[calc(100vh-64px)] bg-slate-900 text-white flex flex-col lg:flex-row overflow-hidden print:hidden">
-      <div className="w-full lg:w-2/3 p-8 md:p-12 flex flex-col justify-center items-center border-b lg:border-b-0 lg:border-r border-slate-700 relative">
-        <div className="lg:absolute top-8 left-12 mb-8 lg:mb-0 w-full lg:w-auto flex justify-between lg:block">
-          <div className="flex items-center gap-4 justify-center">
-             <img src={LOGO_PATH} alt="Logo" className="h-24 md:h-36 lg:h-48 object-contain bg-white/95 backdrop-blur-md rounded-2xl p-3 md:p-5 shadow-[0_0_30px_rgba(255,255,255,0.1)] ring-1 ring-white/20 hidden sm:block" onError={(e) => e.target.style.display='none'} />
-             <div className="flex flex-col">
-                <h2 className="text-2xl md:text-3xl font-bold text-slate-200">{PHARMACY_NAME_ZH}</h2>
-                <h3 className="text-sm font-medium text-slate-400 uppercase tracking-tighter">{PHARMACY_NAME}</h3>
-             </div>
-          </div>
-        </div>
-        <div className="mt-10 lg:mt-0">
-          <h1 className="text-5xl md:text-7xl font-bold text-yellow-500 uppercase tracking-widest text-center mb-4">現在叫號</h1>
-          <p className="text-slate-400 text-xl md:text-2xl text-center font-medium tracking-widest uppercase mb-4 opacity-70">Now Calling</p>
-          <div className={`transition-all duration-300 text-center ${flash ? 'scale-110 text-white drop-shadow-[0_0_50px_rgba(255,255,255,0.5)]' : 'text-white'}`}>
-            <div className="text-[10rem] md:text-[18rem] lg:text-[22rem] font-black leading-none my-4 md:my-8">{displayId}</div>
+    <div className="min-h-[calc(100vh-64px)] bg-slate-900 text-white flex flex-col overflow-hidden print:hidden">
+      {/* Top Header Bar - Optimized to prevent overlapping */}
+      <div className="w-full bg-slate-800/50 border-b border-slate-700 p-4 md:p-6 flex flex-col md:flex-row items-center justify-between gap-6 shrink-0">
+         <div className="flex items-center gap-4 md:gap-6">
+            <img src={LOGO_PATH} alt="Logo" className="h-16 md:h-24 object-contain bg-white/95 backdrop-blur-md rounded-2xl p-2 md:p-3 shadow-xl ring-1 ring-white/20" onError={(e) => e.target.style.display='none'} />
+            <div className="flex flex-col">
+               <h2 className="text-2xl md:text-4xl font-bold text-slate-100">{PHARMACY_NAME_ZH}</h2>
+               <h3 className="text-sm md:text-base font-medium text-slate-400 uppercase tracking-tighter opacity-80">{PHARMACY_NAME}</h3>
+            </div>
+         </div>
+         <div className="flex flex-col items-center md:items-end">
+            <h1 className="text-4xl md:text-5xl font-black text-yellow-500 tracking-widest uppercase">現在叫號</h1>
+            <p className="text-slate-500 text-xs md:text-sm font-bold tracking-widest uppercase opacity-60">Now Calling</p>
+         </div>
+      </div>
+
+      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
+        {/* Main Calling Section */}
+        <div className="w-full lg:w-2/3 p-8 flex flex-col justify-center items-center border-b lg:border-b-0 lg:border-r border-slate-700 relative">
+          <div className={`transition-all duration-300 text-center ${flash ? 'scale-110 text-white drop-shadow-[0_0_60px_rgba(255,255,255,0.4)]' : 'text-white'}`}>
+            <div className="text-[12rem] md:text-[22rem] lg:text-[26rem] font-black leading-none my-4 tracking-tighter">{displayId}</div>
           </div>
           {currentTicket && currentTicket.calledByCounter && (
-            <div className="text-center animate-in fade-in slide-in-from-bottom-4">
-              <div className="inline-block bg-slate-800 text-yellow-400 px-8 py-3 md:px-12 md:py-4 rounded-full text-3xl md:text-5xl font-bold border-4 border-yellow-500 shadow-2xl">
+            <div className="text-center animate-in fade-in slide-in-from-bottom-4 mt-8">
+              <div className="inline-block bg-yellow-500 text-slate-900 px-12 py-4 md:px-20 md:py-6 rounded-full text-4xl md:text-7xl font-black shadow-[0_0_50px_rgba(234,179,8,0.3)]">
                 {currentTicket.calledByCounter.replace('Counter', '').replace('Room', '')} 號 {currentTicket.calledByCounter.includes('Counter') ? '櫃位' : '房間'}
               </div>
             </div>
           )}
         </div>
-      </div>
-      <div className="w-full lg:w-1/3 bg-slate-800 p-6 md:p-8 flex flex-col">
-        <h2 className="text-3xl font-bold text-slate-300 mb-6 border-b-2 border-slate-700 pb-4">
-          準備叫號 <span className="text-lg opacity-60 ml-2 font-medium">Next in Line</span>
-        </h2>
-        <div className="space-y-4 overflow-y-auto flex-1">
-          {[...waitingTickets].sort((a,b) => new Date(a.createdAt) - new Date(b.createdAt)).slice(0, 8).map((ticket) => (
-            <div key={ticket.id} className="flex justify-between items-center bg-slate-700/50 p-4 md:p-6 rounded-xl border border-slate-600/50">
-              <span className="text-4xl md:text-5xl font-black text-slate-200">{ticket.ticketNumber || ticket.id}</span>
-              <span className="text-slate-400 text-xl md:text-2xl font-bold truncate pl-4">{ticket.serviceNameZh}</span>
-            </div>
-          ))}
-          {waitingTickets.length === 0 && <div className="text-center text-slate-500 mt-10 text-lg">暫無等待中籌號 No tickets waiting</div>}
+
+        {/* Sidebar Queue Section */}
+        <div className="w-full lg:w-1/3 bg-slate-800/30 p-6 md:p-8 flex flex-col">
+          <h2 className="text-3xl font-bold text-slate-300 mb-6 border-b-2 border-slate-700 pb-4">
+            準備叫號 <span className="text-lg opacity-60 ml-2 font-medium">Next in Line</span>
+          </h2>
+          <div className="space-y-4 overflow-y-auto flex-1">
+            {[...waitingTickets].sort((a,b) => new Date(a.createdAt) - new Date(b.createdAt)).slice(0, 6).map((ticket) => (
+              <div key={ticket.id} className="flex justify-between items-center bg-slate-700/50 p-6 md:p-8 rounded-2xl border border-slate-600/50 shadow-lg">
+                <span className="text-5xl md:text-7xl font-black text-slate-100">{ticket.ticketNumber || ticket.id}</span>
+                <span className="text-slate-400 text-2xl md:text-3xl font-bold truncate pl-6">{ticket.serviceNameZh}</span>
+              </div>
+            ))}
+            {waitingTickets.length === 0 && <div className="text-center text-slate-500 mt-20 text-xl font-bold">暫無等待中籌號<br/><span className="text-sm opacity-50">No tickets waiting</span></div>}
+          </div>
         </div>
       </div>
     </div>
@@ -556,7 +563,6 @@ const PanelView = ({
                     <div className="w-full xl:w-auto">
                       <div className="flex items-center justify-between xl:justify-start gap-4">
                         <div className="text-3xl font-black text-gray-900">{displayId}</div>
-                        {/* Mobile Buttons for Active Tickets */}
                         <div className="flex gap-2 xl:hidden">
                           <button onClick={() => setMemoModal({ id: ticket.id, displayId: displayId, text: ticket.memo || '' })} className="p-2 bg-white rounded-lg border border-gray-200 text-gray-500 hover:text-blue-600 shadow-sm"><Edit3 className="w-5 h-5" /></button>
                           <button onClick={() => setReturnModal({ id: ticket.id, displayId: displayId })} className="p-2 bg-white rounded-lg border border-gray-200 text-orange-500 hover:text-orange-600 shadow-sm"><RotateCcw className="w-5 h-5" /></button>
@@ -566,7 +572,6 @@ const PanelView = ({
                       {ticket.memo && <div className="mt-2 text-blue-700 bg-white px-3 py-1.5 rounded-lg text-sm border border-blue-200 shadow-sm flex items-start gap-2"><FileEdit className="w-4 h-4 shrink-0 mt-0.5" /> <span className="break-words font-bold">{ticket.memo}</span></div>}
                     </div>
                     <div className="flex flex-wrap sm:flex-nowrap gap-2 w-full xl:w-auto mt-2 xl:mt-0">
-                      {/* Desktop Buttons for Active Tickets */}
                       <button onClick={() => setMemoModal({ id: ticket.id, displayId: displayId, text: ticket.memo || '' })} className="hidden xl:flex p-3 bg-white rounded-lg border border-gray-200 text-gray-500 hover:text-blue-600 hover:bg-blue-50 transition-colors shadow-sm" title="Add Memo"><Edit3 className="w-5 h-5" /></button>
                       <button onClick={() => setReturnModal({ id: ticket.id, displayId: displayId })} className="hidden xl:flex p-3 bg-white rounded-lg border border-gray-200 text-orange-500 hover:text-white hover:bg-orange-500 transition-colors shadow-sm" title="Return to Queue"><RotateCcw className="w-5 h-5" /></button>
                       
@@ -772,7 +777,7 @@ const ReportsView = ({ tickets }) => {
               <button 
                 key={tf} 
                 onClick={() => setTimeframe(tf)} 
-                className={`flex-1 sm:flex-none px-4 py-2 text-sm font-bold rounded-md transition-all ${timeframe === tf ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+                className={`flex-1 sm:flex-none px-4 py-2 text-sm font-bold rounded-md capitalize transition-all ${timeframe === tf ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
               >
                 {tf === 'all' ? '所有記錄' : tf === 'today' ? '今日' : tf === 'week' ? '本週' : '本月'}
               </button>

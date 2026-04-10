@@ -5,7 +5,8 @@ import {
   Home, ChevronRight, Activity, LogOut, ArrowUpDown, 
   Timer, FileEdit, BarChart3, TrendingUp, Users, Database,
   Lock, KeyRound, AlertTriangle, Edit3, Menu, RotateCcw,
-  Volume2, VolumeX, Trash2, Play, Calendar, History
+  Volume2, VolumeX, Trash2, Play, Calendar, History,
+  ShoppingBag, ClipboardList, HeartPulse
 } from 'lucide-react';
 
 // --- FIREBASE CLOUD SYNC IMPORTS ---
@@ -36,9 +37,12 @@ const STAFF_PIN = "1234"; // Default security PIN
 const LOGO_PATH = "/logo.png"; // Path to your logo in the public folder
 
 const SERVICES = [
-  { id: 'A', name: 'Prescription & Dispensing', nameZh: '配藥及取藥', icon: Ticket, color: 'bg-blue-600', hover: 'hover:bg-blue-700' },
-  { id: 'B', name: 'Pharmacist Consultation', nameZh: '藥劑師諮詢', icon: Stethoscope, color: 'bg-teal-600', hover: 'hover:bg-teal-700' },
-  { id: 'C', name: 'General Enquiry', nameZh: '一般查詢', icon: Info, color: 'bg-purple-600', hover: 'hover:bg-purple-700' },
+  { id: 'A', name: 'Prescription Dispensing', nameZh: '處方配藥', icon: Ticket, color: 'bg-blue-600', hover: 'hover:bg-blue-700' },
+  { id: 'B', name: 'Minor Ailment Management', nameZh: '小病小痛管理', icon: Stethoscope, color: 'bg-teal-600', hover: 'hover:bg-teal-700' },
+  { id: 'C', name: 'Travel / OTC Medication', nameZh: '購買平安藥/非處方藥', icon: ShoppingBag, color: 'bg-purple-600', hover: 'hover:bg-purple-700' },
+  { id: 'D', name: 'Pharmacist Consultation', nameZh: '藥劑師諮詢', icon: UserCheck, color: 'bg-orange-500', hover: 'hover:bg-orange-600' },
+  { id: 'E', name: 'Medication Management Service', nameZh: '藥物管理服務', icon: ClipboardList, color: 'bg-pink-600', hover: 'hover:bg-pink-700' },
+  { id: 'F', name: 'Health Screening Service', nameZh: '健康篩查服務', icon: HeartPulse, color: 'bg-indigo-600', hover: 'hover:bg-indigo-700' },
 ];
 
 const STATIONS = ['Counter 1', 'Counter 2', 'Room 3', 'Room 4'];
@@ -73,22 +77,22 @@ const MemoDialog = ({ memoModal, onClose, onSave }) => {
             <FileEdit className="w-5 h-5" />
           </div>
           <h3 className="text-lg font-bold text-gray-800">
-            Memo for Ticket {memoModal.displayId}
+            備忘錄 - 籌號 {memoModal.displayId}
           </h3>
         </div>
         <p className="text-sm text-gray-500 mb-4">
-          Add patient name, Rx number, or purpose of visit.
+          請輸入患者姓名、處方編號或到診目的。
         </p>
         <textarea
           className="w-full border border-gray-200 rounded-lg p-3 min-h-[100px] mb-4 focus:ring-2 focus:ring-blue-500 outline-none resize-none text-base"
-          placeholder="e.g. Rx 12345, Patient Name..."
+          placeholder="例如：陳大文, Rx 12345..."
           value={text}
           onChange={(e) => setText(e.target.value)}
           autoFocus
         />
         <div className="flex justify-end gap-3">
-          <button onClick={onClose} className="px-4 py-3 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">Cancel</button>
-          <button onClick={() => onSave(memoModal.id, text)} className="px-6 py-3 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">Save Memo</button>
+          <button onClick={onClose} className="px-4 py-3 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">取消</button>
+          <button onClick={() => onSave(memoModal.id, text)} className="px-6 py-3 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">儲存備忘</button>
         </div>
       </div>
     </div>
@@ -106,22 +110,22 @@ const ReturnDialog = ({ returnModal, onClose, onConfirm }) => {
             <RotateCcw className="w-5 h-5" />
           </div>
           <h3 className="text-lg font-bold text-gray-800">
-            Return Ticket {returnModal.displayId} to Queue
+            重新排隊 - 籌號 {returnModal.displayId}
           </h3>
         </div>
         <p className="text-sm text-gray-500 mb-4">
-          Add a remark (e.g., waiting for doctor, missing info). This ticket will be sent back to the waiting list.
+          請註明原因。此籌號將返回等待隊列。
         </p>
         <textarea
           className="w-full border border-gray-200 rounded-lg p-3 min-h-[100px] mb-4 focus:ring-2 focus:ring-orange-500 outline-none resize-none text-base"
-          placeholder="Reason for returning to queue..."
+          placeholder="返回隊列原因..."
           value={text}
           onChange={(e) => setText(e.target.value)}
           autoFocus
         />
         <div className="flex justify-end gap-3">
-          <button onClick={onClose} className="px-4 py-3 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">Cancel</button>
-          <button onClick={() => onConfirm(returnModal.id, text)} className="px-6 py-3 text-sm font-medium bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors">Confirm Return</button>
+          <button onClick={onClose} className="px-4 py-3 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">取消</button>
+          <button onClick={() => onConfirm(returnModal.id, text)} className="px-6 py-3 text-sm font-medium bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors">確認返回</button>
         </div>
       </div>
     </div>
@@ -133,14 +137,14 @@ const DeleteDialog = ({ deleteModal, onClose, onConfirm }) => {
   const [customReason, setCustomReason] = useState("");
 
   const COMMON_REASONS = [
-    "Customer left",
-    "Printed by mistake",
-    "Duplicate ticket",
-    "Other"
+    "顧客已離開 Customer left",
+    "誤印籌號 Printed by mistake",
+    "重複籌號 Duplicate ticket",
+    "其他原因 Other"
   ];
 
   const handleConfirm = () => {
-    const finalReason = selectedReason === "Other" ? customReason : selectedReason;
+    const finalReason = selectedReason.includes("Other") ? customReason : selectedReason;
     onConfirm(deleteModal.id, finalReason || "No reason provided");
   };
 
@@ -152,11 +156,11 @@ const DeleteDialog = ({ deleteModal, onClose, onConfirm }) => {
             <Trash2 className="w-5 h-5" />
           </div>
           <h3 className="text-lg font-bold text-gray-800">
-            Cancel Ticket {deleteModal.displayId}?
+            取消籌號 {deleteModal.displayId}?
           </h3>
         </div>
         <p className="text-sm text-gray-500 mb-4">
-          Are you sure you want to cancel this ticket? Please select a reason below.
+          您確定要取消此籌號嗎？請選擇原因：
         </p>
         
         <div className="space-y-2 mb-4">
@@ -175,10 +179,10 @@ const DeleteDialog = ({ deleteModal, onClose, onConfirm }) => {
           ))}
         </div>
 
-        {selectedReason === "Other" && (
+        {selectedReason.includes("Other") && (
           <textarea
             className="w-full border border-gray-200 rounded-lg p-3 min-h-[80px] mb-4 focus:ring-2 focus:ring-red-500 outline-none resize-none text-base animate-in fade-in"
-            placeholder="Please specify the reason..."
+            placeholder="請註明原因..."
             value={customReason}
             onChange={(e) => setCustomReason(e.target.value)}
             autoFocus
@@ -186,8 +190,8 @@ const DeleteDialog = ({ deleteModal, onClose, onConfirm }) => {
         )}
 
         <div className="flex justify-end gap-3 mt-6">
-          <button onClick={onClose} className="px-4 py-3 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">Keep Ticket</button>
-          <button onClick={handleConfirm} className="px-6 py-3 text-sm font-medium bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors shadow-sm">Confirm Cancel</button>
+          <button onClick={onClose} className="px-4 py-3 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">保留籌號</button>
+          <button onClick={handleConfirm} className="px-6 py-3 text-sm font-medium bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors shadow-sm">確認取消</button>
         </div>
       </div>
     </div>
@@ -200,31 +204,33 @@ const HomeView = ({ setCurrentView, isStaffAuthenticated }) => (
   <div className="flex flex-col items-center justify-center min-h-[calc(100vh-64px)] bg-gray-50 p-4 md:p-8 print:hidden">
     <div className="max-w-5xl w-full text-center space-y-6 md:space-y-8">
       <img src={LOGO_PATH} alt="Pharmacy Logo" className="h-48 md:h-64 lg:h-80 mx-auto object-contain mb-6 drop-shadow-xl" onError={(e) => e.target.style.display='none'} />
-      <h1 className="text-3xl md:text-5xl font-bold text-gray-800 tracking-tight leading-tight">{PHARMACY_NAME}</h1>
-      <h2 className="text-xl md:text-3xl text-gray-600 font-medium">{PHARMACY_NAME_ZH}</h2>
+      <div>
+        <h1 className="text-4xl md:text-6xl font-bold text-gray-800 tracking-tight leading-tight mb-2">{PHARMACY_NAME_ZH}</h1>
+        <h2 className="text-lg md:text-2xl text-gray-500 font-medium">{PHARMACY_NAME}</h2>
+      </div>
       <div className="flex items-center justify-center gap-2 mt-4 text-green-700 bg-green-100 px-4 py-2 rounded-full w-max mx-auto shadow-sm border border-green-200">
-        <Database className="w-4 h-4 md:w-5 md:h-5" /> <span className="text-sm md:text-base font-bold">Cloud Sync Active</span>
+        <Database className="w-4 h-4 md:w-5 md:h-5" /> <span className="text-sm md:text-base font-bold">雲端同步已啟動 Cloud Sync Active</span>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mt-8 md:mt-12">
         <button onClick={() => setCurrentView('kiosk')} className="bg-white p-6 md:p-8 rounded-2xl shadow hover:shadow-lg transition-all group flex flex-col items-center cursor-pointer border border-gray-100">
           <div className="bg-blue-100 p-4 md:p-5 rounded-full mb-4 group-hover:scale-110 transition-transform"><Printer className="w-8 h-8 md:w-10 md:h-10 text-blue-600" /></div>
-          <h3 className="text-lg md:text-xl font-bold text-gray-800">Ticketing Kiosk</h3>
-          <p className="text-gray-500 mt-2 text-sm">Customer ticket machine</p>
+          <h3 className="text-xl md:text-2xl font-bold text-gray-800">自助取籌機</h3>
+          <p className="text-gray-500 mt-1 text-xs">Ticketing Kiosk</p>
         </button>
         <button onClick={() => setCurrentView('monitor')} className="bg-white p-6 md:p-8 rounded-2xl shadow hover:shadow-lg transition-all group flex flex-col items-center cursor-pointer border border-gray-100">
           <div className="bg-indigo-100 p-4 md:p-5 rounded-full mb-4 group-hover:scale-110 transition-transform"><Monitor className="w-8 h-8 md:w-10 md:h-10 text-indigo-600" /></div>
-          <h3 className="text-lg md:text-xl font-bold text-gray-800">TV Monitor</h3>
-          <p className="text-gray-500 mt-2 text-sm">Public queue display</p>
+          <h3 className="text-xl md:text-2xl font-bold text-gray-800">電視叫號螢幕</h3>
+          <p className="text-gray-500 mt-1 text-xs">TV Monitor</p>
         </button>
         <button onClick={() => { if(isStaffAuthenticated) setCurrentView('panel'); else setCurrentView('login'); }} className="bg-white p-6 md:p-8 rounded-2xl shadow hover:shadow-lg transition-all group flex flex-col items-center cursor-pointer border border-gray-100">
           <div className="bg-teal-100 p-4 md:p-5 rounded-full mb-4 group-hover:scale-110 transition-transform"><UserCheck className="w-8 h-8 md:w-10 md:h-10 text-teal-600" /></div>
-          <h3 className="text-lg md:text-xl font-bold text-gray-800">Pharmacist Panel</h3>
-          <p className="text-gray-500 mt-2 text-sm">Staff station control</p>
+          <h3 className="text-xl md:text-2xl font-bold text-gray-800">藥劑師控制台</h3>
+          <p className="text-gray-500 mt-1 text-xs">Pharmacist Panel</p>
         </button>
         <button onClick={() => { if(isStaffAuthenticated) setCurrentView('reports'); else setCurrentView('login'); }} className="bg-white p-6 md:p-8 rounded-2xl shadow hover:shadow-lg transition-all group flex flex-col items-center cursor-pointer border border-gray-100">
           <div className="bg-purple-100 p-4 md:p-5 rounded-full mb-4 group-hover:scale-110 transition-transform"><BarChart3 className="w-8 h-8 md:w-10 md:h-10 text-purple-600" /></div>
-          <h3 className="text-lg md:text-xl font-bold text-gray-800">Backstage Data</h3>
-          <p className="text-gray-500 mt-2 text-sm">Reports & Analytics</p>
+          <h3 className="text-xl md:text-2xl font-bold text-gray-800">後台數據分析</h3>
+          <p className="text-gray-500 mt-1 text-xs">Reports & Analytics</p>
         </button>
       </div>
     </div>
@@ -242,11 +248,11 @@ const LoginView = ({ setCurrentView, setIsStaffAuthenticated }) => {
     <div className="min-h-[calc(100vh-64px)] bg-gray-100 flex items-center justify-center p-4 md:p-6 print:hidden">
       <div className="bg-white p-8 md:p-10 rounded-2xl shadow-xl w-full max-w-sm text-center">
         <div className="bg-slate-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6"><Lock className="w-8 h-8 text-slate-600" /></div>
-        <h2 className="text-2xl md:text-3xl font-bold text-gray-800 mb-2">Staff Only</h2>
-        <p className="text-gray-500 mb-8">Enter the security PIN</p>
+        <h2 className="text-2xl md:text-3xl font-bold text-gray-800 mb-2">職員專用 Staff Only</h2>
+        <p className="text-gray-500 mb-8">請輸入安全密碼 Enter security PIN</p>
         <input type="password" value={pin} onChange={(e) => { setError(false); setPin(e.target.value); }} onKeyDown={(e) => e.key === 'Enter' && handleLogin()} className={`w-full text-center text-3xl tracking-[1em] border-2 rounded-xl p-4 mb-4 outline-none ${error ? 'border-red-500 bg-red-50' : 'border-gray-200 focus:border-blue-500'}`} placeholder="****" maxLength={4} autoFocus />
-        <button onClick={handleLogin} className="w-full bg-blue-600 text-white font-bold py-4 rounded-xl hover:bg-blue-700 transition-all text-lg shadow-md active:scale-95">Unlock Access</button>
-        <button onClick={() => setCurrentView('home')} className="mt-6 text-gray-400 font-medium w-full py-2">Cancel</button>
+        <button onClick={handleLogin} className="w-full bg-blue-600 text-white font-bold py-4 rounded-xl hover:bg-blue-700 transition-all text-lg shadow-md active:scale-95">登入系統 Unlock</button>
+        <button onClick={() => setCurrentView('home')} className="mt-6 text-gray-400 font-medium w-full py-2">取消 Cancel</button>
       </div>
     </div>
   );
@@ -293,26 +299,27 @@ const KioskView = ({ generateTicket, counters }) => {
   return (
     <>
       <div className="min-h-[calc(100vh-64px)] bg-gray-100 flex flex-col items-center justify-center p-4 md:p-6 print:hidden">
-        <div className="max-w-3xl w-full bg-white rounded-3xl shadow-2xl overflow-hidden relative">
-          <div className="bg-blue-900 p-6 md:p-8 text-center text-white flex flex-col items-center">
-            <img src={LOGO_PATH} alt="Logo" className="h-32 md:h-48 max-w-[80%] mx-auto mb-6 object-contain bg-white/95 backdrop-blur-md p-3 md:p-5 rounded-2xl shadow-2xl ring-1 ring-white/50" onError={(e) => e.target.style.display='none'} />
-            <h1 className="text-2xl md:text-4xl font-bold mb-2">Welcome 歡迎光臨</h1>
-            <p className="text-blue-100 text-sm md:text-lg">Please select a service to get a ticket</p>
-            <p className="text-blue-100 text-sm md:text-lg">請選擇服務以領取籌號</p>
+        <div className="max-w-4xl w-full bg-white rounded-3xl shadow-2xl overflow-hidden relative">
+          <div className="bg-blue-900 p-6 md:p-8 text-center text-white flex flex-col items-center border-b-8 border-blue-600/30">
+            <img src={LOGO_PATH} alt="Logo" className="h-32 md:h-40 lg:h-48 max-w-[80%] mx-auto mb-6 object-contain bg-white/95 backdrop-blur-md p-3 md:p-5 rounded-2xl shadow-2xl ring-1 ring-white/50" onError={(e) => e.target.style.display='none'} />
+            <h1 className="text-3xl md:text-5xl font-bold mb-2">歡迎光臨 Welcome</h1>
+            <p className="text-blue-100 text-lg md:text-2xl font-medium mt-2">請選擇服務以領取籌號 Please select a service</p>
           </div>
-          <div className="p-4 md:p-8 space-y-4 md:space-y-6">
+          <div className="p-4 md:p-8 grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
             {SERVICES.map(service => {
               const Icon = service.icon;
               return (
-                <button key={service.id} onClick={() => handlePrint(service.id)} disabled={isGenerating} className={`w-full ${service.color} ${service.hover} text-white p-5 md:p-6 rounded-2xl shadow-md transition-all active:scale-95 flex items-center justify-between disabled:opacity-70`}>
-                  <div className="flex items-center gap-4 md:gap-6 text-left">
-                    <div className="bg-white/20 p-3 md:p-4 rounded-full"><Icon className="w-8 h-8 md:w-10 md:h-10" /></div>
-                    <div>
-                      <h2 className="text-xl md:text-3xl font-bold">{service.name}</h2>
-                      <h3 className="text-lg md:text-2xl mt-1 opacity-90">{service.nameZh}</h3>
+                <button key={service.id} onClick={() => handlePrint(service.id)} disabled={isGenerating} className={`w-full ${service.color} ${service.hover} text-white p-5 md:p-6 rounded-2xl shadow-md transition-all active:scale-95 flex items-center justify-between disabled:opacity-70 group`}>
+                  <div className="flex items-center gap-4 md:gap-5 text-left flex-1">
+                    <div className="bg-white text-slate-800 w-16 h-16 md:w-20 md:h-20 rounded-2xl shrink-0 flex items-center justify-center shadow-lg border-b-4 border-black/20 group-active:border-b-0 group-active:translate-y-1 transition-all">
+                      <span className="text-4xl md:text-5xl font-black">{service.id}</span>
+                    </div>
+                    <div className="flex-1 pl-1">
+                      <h2 className="text-2xl md:text-3xl font-bold leading-tight mb-1">{service.nameZh}</h2>
+                      <h3 className="text-sm md:text-base opacity-90 italic font-medium">{service.name}</h3>
                     </div>
                   </div>
-                  <ChevronRight className="w-8 h-8 md:w-10 md:h-10 opacity-50" />
+                  <ChevronRight className="w-6 h-6 md:w-8 md:h-8 opacity-50 shrink-0" />
                 </button>
               );
             })}
@@ -321,15 +328,14 @@ const KioskView = ({ generateTicket, counters }) => {
           {printedTicket && (
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
               <div className="bg-white p-8 rounded-3xl shadow-2xl w-full max-w-sm text-center border-t-8 border-blue-600 flex flex-col items-center animate-in zoom-in-95 duration-200">
-                <h2 className="text-sm font-bold text-gray-500 uppercase tracking-widest mb-1">Your Ticket Number</h2>
-                <h2 className="text-sm font-bold text-gray-500 uppercase tracking-widest mb-2">您的籌號</h2>
-                <div className="text-7xl font-black text-blue-600 my-4 tracking-tighter">{printedTicket.ticketNumber || printedTicket.id}</div>
+                <h2 className="text-xl font-bold text-gray-800 mb-1">您的籌號 Your Ticket</h2>
+                <div className="text-7xl md:text-8xl font-black text-blue-600 my-4 tracking-tighter">{printedTicket.ticketNumber || printedTicket.id}</div>
                 
-                <button onClick={handleManualPrint} className="mt-2 bg-blue-50 text-blue-700 font-bold py-3 px-6 rounded-full flex items-center justify-center gap-2 hover:bg-blue-100 transition-colors w-full border border-blue-200 mb-6 shadow-sm active:scale-95">
-                  <Printer className="w-5 h-5" /> Click to Print Ticket
+                <button onClick={handleManualPrint} className="mt-2 bg-blue-50 text-blue-700 font-bold py-4 px-6 rounded-full flex items-center justify-center gap-2 hover:bg-blue-100 transition-colors w-full border border-blue-200 mb-6 shadow-sm active:scale-95 text-xl">
+                  <Printer className="w-6 h-6" /> 列印籌號 Print Ticket
                 </button>
                 
-                <button onClick={() => setPrintedTicket(null)} className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold w-full py-4 rounded-xl transition-colors">Close 關閉</button>
+                <button onClick={() => setPrintedTicket(null)} className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold w-full py-4 rounded-xl transition-colors">關閉 Close</button>
               </div>
             </div>
           )}
@@ -341,21 +347,21 @@ const KioskView = ({ generateTicket, counters }) => {
         <div className="hidden print:block text-black text-center w-full max-w-[80mm] mx-auto p-4 font-sans bg-white z-[9999] m-0">
           <div className="border-b-2 border-black pb-4 mb-4 flex flex-col items-center">
             <img src={LOGO_PATH} alt="Logo" className="w-11/12 max-w-[70mm] h-auto object-contain mb-4" onError={(e) => e.target.style.display='none'} />
-            <h1 className="text-base font-bold leading-tight">{PHARMACY_NAME}</h1>
-            <h2 className="text-lg font-bold mt-1">{PHARMACY_NAME_ZH}</h2>
+            <h1 className="text-xl font-bold leading-tight">{PHARMACY_NAME_ZH}</h1>
+            <h2 className="text-xs font-medium mt-1 uppercase tracking-tight">{PHARMACY_NAME}</h2>
           </div>
           <div className="mb-2">
-            <div className="text-xs uppercase font-bold tracking-widest text-gray-600">{printedTicket.serviceName}</div>
-            <div className="text-sm font-bold">{printedTicket.serviceNameZh}</div>
+            <div className="text-xl font-bold">{printedTicket.serviceNameZh}</div>
+            <div className="text-xs font-medium opacity-70 uppercase tracking-widest">{printedTicket.serviceName}</div>
           </div>
           <div className="border-y-4 border-black py-6 my-4">
-            <div className="text-sm font-bold uppercase mb-1">Your Ticket Number 您的籌號</div>
-            <div className="text-[6rem] font-black leading-none">{printedTicket.ticketNumber || printedTicket.id}</div>
+            <div className="text-sm font-bold uppercase mb-1">您的籌號 YOUR TICKET NUMBER</div>
+            <div className="text-[6.5rem] font-black leading-none">{printedTicket.ticketNumber || printedTicket.id}</div>
           </div>
           <div className="text-sm font-bold">{formatDate(printedTicket.createdAt)}</div>
           <div className="text-sm mb-6">{formatTime(printedTicket.createdAt)}</div>
-          <div className="border-t border-dashed border-gray-400 pt-4 text-xs italic">
-            Please wait for your number.<br/>請耐心等候叫號。
+          <div className="border-t border-dashed border-gray-400 pt-4 text-sm italic font-bold">
+            請耐心等候叫號。<br/>Please wait for your number.
           </div>
         </div>
       )}
@@ -425,10 +431,10 @@ const MonitorView = ({ tickets, waitingTickets, lastCallEvent }) => {
       <div className="h-[calc(100vh-64px)] bg-slate-900 flex flex-col items-center justify-center p-6 print:hidden">
         <div className="max-w-lg w-full bg-slate-800 p-10 rounded-3xl shadow-2xl text-center border border-slate-700">
           <Volume2 className="w-20 h-20 text-blue-500 mx-auto mb-6 animate-pulse" />
-          <h2 className="text-3xl font-bold text-white mb-4">Start Monitor</h2>
-          <p className="text-slate-400 mb-8 text-lg">Chrome requires you to click once before it allows audio to play.</p>
+          <h2 className="text-3xl font-bold text-white mb-4">啟動叫號螢幕 Start Monitor</h2>
+          <p className="text-slate-400 mb-8 text-lg">Chrome 要求在播放聲音前必須點擊一次。 Chrome requires a click to play audio.</p>
           <button onClick={handleStartMonitor} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-6 rounded-2xl text-xl shadow-[0_0_30px_rgba(37,99,235,0.4)] transition-all active:scale-95 flex items-center justify-center gap-3">
-            <Play className="w-6 h-6 fill-current" /> Enable Sound & Start
+            <Play className="w-6 h-6 fill-current" /> 開啟聲音並啟動 Enable Sound & Start
           </button>
         </div>
       </div>
@@ -441,33 +447,39 @@ const MonitorView = ({ tickets, waitingTickets, lastCallEvent }) => {
         <div className="lg:absolute top-8 left-12 mb-8 lg:mb-0 w-full lg:w-auto flex justify-between lg:block">
           <div className="flex items-center gap-4 justify-center">
              <img src={LOGO_PATH} alt="Logo" className="h-24 md:h-36 lg:h-48 object-contain bg-white/95 backdrop-blur-md rounded-2xl p-3 md:p-5 shadow-[0_0_30px_rgba(255,255,255,0.1)] ring-1 ring-white/20 hidden sm:block" onError={(e) => e.target.style.display='none'} />
-             <h2 className="text-xl md:text-2xl font-bold text-slate-400 flex items-center gap-3"><Activity className="w-6 h-6 md:w-8 md:h-8 text-blue-500 hidden sm:block" />{PHARMACY_NAME}</h2>
+             <div className="flex flex-col">
+                <h2 className="text-2xl md:text-3xl font-bold text-slate-200">{PHARMACY_NAME_ZH}</h2>
+                <h3 className="text-sm font-medium text-slate-400 uppercase tracking-tighter">{PHARMACY_NAME}</h3>
+             </div>
           </div>
         </div>
         <div className="mt-10 lg:mt-0">
-          <h1 className="text-3xl md:text-5xl font-medium text-slate-400 uppercase tracking-widest text-center">Now Calling 現在叫號</h1>
-          <div className={`transition-all duration-300 text-center ${flash ? 'scale-110 text-yellow-400 drop-shadow-[0_0_30px_rgba(250,204,21,0.5)]' : 'text-white'}`}>
-            <div className="text-[8rem] md:text-[15rem] lg:text-[18rem] font-black leading-none my-4 md:my-8">{displayId}</div>
+          <h1 className="text-5xl md:text-7xl font-bold text-yellow-500 uppercase tracking-widest text-center mb-4">現在叫號</h1>
+          <p className="text-slate-400 text-xl md:text-2xl text-center font-medium tracking-widest uppercase mb-4 opacity-70">Now Calling</p>
+          <div className={`transition-all duration-300 text-center ${flash ? 'scale-110 text-white drop-shadow-[0_0_50px_rgba(255,255,255,0.5)]' : 'text-white'}`}>
+            <div className="text-[10rem] md:text-[18rem] lg:text-[22rem] font-black leading-none my-4 md:my-8">{displayId}</div>
           </div>
           {currentTicket && currentTicket.calledByCounter && (
             <div className="text-center animate-in fade-in slide-in-from-bottom-4">
-              <div className="inline-block bg-slate-800 text-yellow-400 px-8 py-3 md:px-12 md:py-4 rounded-full text-2xl md:text-4xl font-bold border border-slate-700">
-                {currentTicket.calledByCounter} {currentTicket.calledByCounter.includes('Counter') ? '櫃位' : '房間'}
+              <div className="inline-block bg-slate-800 text-yellow-400 px-8 py-3 md:px-12 md:py-4 rounded-full text-3xl md:text-5xl font-bold border-4 border-yellow-500 shadow-2xl">
+                {currentTicket.calledByCounter.replace('Counter', '').replace('Room', '')} 號 {currentTicket.calledByCounter.includes('Counter') ? '櫃位' : '房間'}
               </div>
             </div>
           )}
         </div>
       </div>
       <div className="w-full lg:w-1/3 bg-slate-800 p-6 md:p-8 flex flex-col">
-        <h2 className="text-2xl md:text-3xl font-bold text-slate-300 mb-6 border-b border-slate-700 pb-4">Next in Line</h2>
+        <h2 className="text-3xl font-bold text-slate-300 mb-6 border-b-2 border-slate-700 pb-4">
+          準備叫號 <span className="text-lg opacity-60 ml-2 font-medium">Next in Line</span>
+        </h2>
         <div className="space-y-4 overflow-y-auto flex-1">
           {[...waitingTickets].sort((a,b) => new Date(a.createdAt) - new Date(b.createdAt)).slice(0, 8).map((ticket) => (
             <div key={ticket.id} className="flex justify-between items-center bg-slate-700/50 p-4 md:p-6 rounded-xl border border-slate-600/50">
-              <span className="text-3xl md:text-4xl font-bold text-slate-200">{ticket.ticketNumber || ticket.id}</span>
-              <span className="text-slate-400 text-base md:text-lg truncate pl-4">{ticket.serviceNameZh}</span>
+              <span className="text-4xl md:text-5xl font-black text-slate-200">{ticket.ticketNumber || ticket.id}</span>
+              <span className="text-slate-400 text-xl md:text-2xl font-bold truncate pl-4">{ticket.serviceNameZh}</span>
             </div>
           ))}
-          {waitingTickets.length === 0 && <div className="text-center text-slate-500 mt-10 text-lg">No tickets waiting</div>}
+          {waitingTickets.length === 0 && <div className="text-center text-slate-500 mt-10 text-lg">暫無等待中籌號 No tickets waiting</div>}
         </div>
       </div>
     </div>
@@ -485,13 +497,13 @@ const PanelView = ({
   if (!panelRoom) return (
     <div className="min-h-[calc(100vh-64px)] bg-gray-100 flex items-center justify-center p-4 print:hidden">
       <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md text-center">
-        <h2 className="text-2xl font-bold text-gray-800 mb-8">Pharmacist Panel</h2>
+        <h2 className="text-2xl font-bold text-gray-800 mb-8">藥劑師控制台 Pharmacist Panel</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {STATIONS.map(station => (
             <button key={station} onClick={() => setPanelRoom(station)} className="p-4 border-2 rounded-xl font-bold text-lg text-gray-700 hover:border-teal-500 hover:bg-teal-50 hover:text-teal-700 transition-all shadow-sm active:scale-95">{station}</button>
           ))}
         </div>
-        <button onClick={() => { setIsStaffAuthenticated(false); setCurrentView('home'); }} className="mt-8 text-sm font-medium text-gray-400 hover:text-red-500 flex items-center justify-center gap-2 mx-auto px-4 py-2"><Lock className="w-4 h-4" /> Log Out System</button>
+        <button onClick={() => { setIsStaffAuthenticated(false); setCurrentView('home'); }} className="mt-8 text-sm font-medium text-gray-400 hover:text-red-500 flex items-center justify-center gap-2 mx-auto px-4 py-2"><Lock className="w-4 h-4" /> 登出系統 Log Out</button>
       </div>
     </div>
   );
@@ -515,15 +527,15 @@ const PanelView = ({
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 lg:p-6 shrink-0">
           <div className="flex justify-between items-center mb-4 lg:mb-6 border-b border-gray-100 pb-4">
             <h2 className="text-xl lg:text-2xl font-bold text-teal-700 flex items-center gap-2"><UserCheck className="w-6 h-6"/> {panelRoom}</h2>
-            <button onClick={() => setPanelRoom(null)} className="text-gray-500 hover:text-red-600 text-sm font-medium flex items-center gap-1 bg-gray-50 px-3 py-2 rounded-lg"><LogOut className="w-4 h-4"/> Switch</button>
+            <button onClick={() => setPanelRoom(null)} className="text-gray-500 hover:text-red-600 text-sm font-medium flex items-center gap-1 bg-gray-50 px-3 py-2 rounded-lg"><LogOut className="w-4 h-4"/> 切換 Switch</button>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 lg:gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 lg:gap-3">
             {SERVICES.map(service => {
               const next = [...waitingTickets].sort((a,b)=>new Date(a.createdAt)-new Date(b.createdAt)).find(t=>t.type===service.id);
               return (
-                <button key={service.id} onClick={() => next && updateTicketStatus(next.id, 'calling', panelRoom)} disabled={!next} className={`p-4 rounded-xl border-2 text-left transition-all ${next ? 'border-blue-300 bg-blue-50 hover:bg-blue-100 shadow-sm active:scale-95 cursor-pointer' : 'border-gray-100 bg-gray-50 opacity-50 cursor-not-allowed'}`}>
-                  <div className="text-xs font-bold text-blue-600 uppercase tracking-wider mb-1 truncate">{service.name}</div>
-                  <div className="text-3xl font-black text-gray-900">{next ? (next.ticketNumber || next.id) : '--'}</div>
+                <button key={service.id} onClick={() => next && updateTicketStatus(next.id, 'calling', panelRoom)} disabled={!next} className={`p-3 rounded-xl border-2 text-left transition-all ${next ? 'border-blue-300 bg-blue-50 hover:bg-blue-100 shadow-sm active:scale-95 cursor-pointer' : 'border-gray-100 bg-gray-50 opacity-50 cursor-not-allowed'}`}>
+                  <div className="text-[10px] sm:text-xs font-bold text-blue-600 uppercase tracking-wider mb-1 truncate" title={service.nameZh}>{service.nameZh}</div>
+                  <div className="text-xl sm:text-2xl lg:text-3xl font-black text-gray-900">{next ? (next.ticketNumber || next.id) : '--'}</div>
                 </button>
               );
             })}
@@ -532,10 +544,10 @@ const PanelView = ({
 
         {/* Active Tickets List */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 flex-1 min-h-[300px] lg:min-h-0 flex flex-col overflow-hidden">
-          <div className="p-4 border-b border-gray-200 bg-gray-50 font-bold text-gray-700 flex items-center gap-2"><Activity className="w-5 h-5 text-green-500"/> Serving at {panelRoom}</div>
+          <div className="p-4 border-b border-gray-200 bg-gray-50 font-bold text-gray-700 flex items-center gap-2"><Activity className="w-5 h-5 text-green-500"/> 正在處理 Serving at {panelRoom}</div>
           <div className="p-4 overflow-y-auto space-y-3 lg:space-y-4 flex-1">
             {activeTickets.filter(t => t.calledByCounter === panelRoom).length === 0 ? (
-              <div className="text-center text-gray-400 py-10 italic">No tickets currently being served.</div>
+              <div className="text-center text-gray-400 py-10 italic">暫無進行中籌號 No active tickets.</div>
             ) : (
               activeTickets.filter(t => t.calledByCounter === panelRoom).map(ticket => {
                 const displayId = ticket.ticketNumber || ticket.id;
@@ -550,8 +562,8 @@ const PanelView = ({
                           <button onClick={() => setReturnModal({ id: ticket.id, displayId: displayId })} className="p-2 bg-white rounded-lg border border-gray-200 text-orange-500 hover:text-orange-600 shadow-sm"><RotateCcw className="w-5 h-5" /></button>
                         </div>
                       </div>
-                      <div className="text-sm text-gray-600 font-medium">{ticket.serviceNameZh}</div>
-                      {ticket.memo && <div className="mt-2 text-blue-700 bg-white px-3 py-1.5 rounded-lg text-sm border border-blue-200 shadow-sm flex items-start gap-2"><FileEdit className="w-4 h-4 shrink-0 mt-0.5" /> <span className="break-words">{ticket.memo}</span></div>}
+                      <div className="text-sm text-gray-600 font-bold">{ticket.serviceNameZh} <span className="opacity-50 font-normal italic">({ticket.serviceName})</span></div>
+                      {ticket.memo && <div className="mt-2 text-blue-700 bg-white px-3 py-1.5 rounded-lg text-sm border border-blue-200 shadow-sm flex items-start gap-2"><FileEdit className="w-4 h-4 shrink-0 mt-0.5" /> <span className="break-words font-bold">{ticket.memo}</span></div>}
                     </div>
                     <div className="flex flex-wrap sm:flex-nowrap gap-2 w-full xl:w-auto mt-2 xl:mt-0">
                       {/* Desktop Buttons for Active Tickets */}
@@ -561,11 +573,11 @@ const PanelView = ({
                       {ticket.status === 'calling' ? (
                         <>
                           <button onClick={()=>updateTicketStatus(ticket.id, 'calling', panelRoom)} className="p-3 bg-white border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 flex-1 sm:flex-none shadow-sm" title="Recall (Ring Bell)"><BellRing className="w-5 h-5 mx-auto" /></button>
-                          <button onClick={()=>updateTicketStatus(ticket.id, 'arrived')} className="bg-blue-600 text-white font-bold px-6 py-3 rounded-lg hover:bg-blue-700 flex-1 sm:flex-none shadow-sm active:scale-95">Arrived</button>
-                          <button onClick={()=>updateTicketStatus(ticket.id, 'missed')} className="bg-red-50 border border-red-200 text-red-600 font-bold px-4 py-3 rounded-lg hover:bg-red-100 flex-1 sm:flex-none">Miss</button>
+                          <button onClick={()=>updateTicketStatus(ticket.id, 'arrived')} className="bg-blue-600 text-white font-bold px-6 py-3 rounded-lg hover:bg-blue-700 flex-1 sm:flex-none shadow-sm active:scale-95">顧客已到 Arrived</button>
+                          <button onClick={()=>updateTicketStatus(ticket.id, 'missed')} className="bg-red-50 border border-red-200 text-red-600 font-bold px-4 py-3 rounded-lg hover:bg-red-100 flex-1 sm:flex-none">過號 Miss</button>
                         </>
                       ) : (
-                        <button onClick={()=>updateTicketStatus(ticket.id, 'completed')} className="bg-green-600 text-white font-bold px-8 py-3 rounded-lg hover:bg-green-700 w-full xl:w-auto shadow-sm active:scale-95 flex items-center justify-center gap-2"><CheckCircle className="w-5 h-5"/> Complete</button>
+                        <button onClick={()=>updateTicketStatus(ticket.id, 'completed')} className="bg-green-600 text-white font-bold px-8 py-3 rounded-lg hover:bg-green-700 w-full xl:w-auto shadow-sm active:scale-95 flex items-center justify-center gap-2"><CheckCircle className="w-5 h-5"/> 完成服務 Complete</button>
                       )}
                     </div>
                   </div>
@@ -583,7 +595,7 @@ const PanelView = ({
           >
             <div className="font-bold text-gray-700 flex items-center gap-2">
               <History className="w-5 h-5 text-purple-500" />
-              Recent History Log
+              最近處理記錄 History Log
             </div>
             <ChevronRight className={`w-5 h-5 text-gray-400 transition-transform ${isHistoryExpanded ? 'rotate-90' : ''}`} />
           </button>
@@ -591,7 +603,7 @@ const PanelView = ({
           {isHistoryExpanded && (
             <div className="p-4 border-t border-gray-200 max-h-80 overflow-y-auto space-y-2 bg-white">
               {completedTickets.length === 0 ? (
-                <div className="text-center text-gray-400 py-4 italic">No recent tickets.</div>
+                <div className="text-center text-gray-400 py-4 italic">暫無記錄 No recent tickets.</div>
               ) : (
                 [...completedTickets]
                   .sort((a, b) => new Date(b.completedAt || 0) - new Date(a.completedAt || 0))
@@ -627,16 +639,16 @@ const PanelView = ({
       <div className="w-full lg:w-96 bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden flex flex-col min-h-[400px] lg:min-h-0 shrink-0">
         <div className="p-4 border-b border-gray-200 bg-gray-50 flex flex-col gap-3 shrink-0">
           <div className="flex justify-between items-center">
-            <h3 className="font-bold text-gray-700 flex items-center gap-2"><Users className="w-5 h-5 text-blue-500"/> Queue <span className="bg-blue-100 text-blue-800 text-xs px-2 py-0.5 rounded-full">{waitingTickets.length}</span></h3>
+            <h3 className="font-bold text-gray-700 flex items-center gap-2"><Users className="w-5 h-5 text-blue-500"/> 等待隊列 Queue <span className="bg-blue-100 text-blue-800 text-xs px-2 py-0.5 rounded-full font-bold">{waitingTickets.length}</span></h3>
           </div>
           <div className="flex bg-gray-200 p-1 rounded-lg">
-            <button onClick={() => setQueueSortBy('time')} className={`flex-1 flex justify-center items-center gap-1 text-xs font-bold py-2 rounded-md transition-colors ${queueSortBy === 'time' ? 'bg-white shadow-sm text-gray-800' : 'text-gray-500'}`}><Timer className="w-4 h-4" /> Wait Time</button>
-            <button onClick={() => setQueueSortBy('number')} className={`flex-1 flex justify-center items-center gap-1 text-xs font-bold py-2 rounded-md transition-colors ${queueSortBy === 'number' ? 'bg-white shadow-sm text-gray-800' : 'text-gray-500'}`}><ArrowUpDown className="w-4 h-4" /> Number</button>
+            <button onClick={() => setQueueSortBy('time')} className={`flex-1 flex justify-center items-center gap-1 text-xs font-bold py-2 rounded-md transition-colors ${queueSortBy === 'time' ? 'bg-white shadow-sm text-gray-800' : 'text-gray-500'}`}><Timer className="w-4 h-4" /> 等待時間 Time</button>
+            <button onClick={() => setQueueSortBy('number')} className={`flex-1 flex justify-center items-center gap-1 text-xs font-bold py-2 rounded-md transition-colors ${queueSortBy === 'number' ? 'bg-white shadow-sm text-gray-800' : 'text-gray-500'}`}><ArrowUpDown className="w-4 h-4" /> 籌號 Number</button>
           </div>
         </div>
         
         <div className="flex-1 overflow-y-auto divide-y divide-gray-100">
-          {sortedWaitingTickets.length === 0 ? <div className="text-center text-gray-400 py-10 italic">Queue is empty</div> : (
+          {sortedWaitingTickets.length === 0 ? <div className="text-center text-gray-400 py-10 italic">暫無等待中籌號 Queue is empty</div> : (
             sortedWaitingTickets.map(t => {
               const waitTime = getWaitTimeMinutes(t.createdAt, currentTime);
               const isOvertime = waitTime > 10;
@@ -647,14 +659,14 @@ const PanelView = ({
                   <div className="flex-1 min-w-0 pr-4">
                     <div className="flex items-center gap-2 flex-wrap">
                       <div className={`text-xl font-black ${isOvertime ? 'text-red-700' : 'text-gray-900'}`}>{displayId}</div>
-                      {isOvertime && <AlertTriangle className="w-5 h-5 text-red-600 animate-pulse" title="Waiting over 10 minutes" />}
-                      {t.isReturned && <span className="bg-orange-100 text-orange-700 text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider border border-orange-200">Returned</span>}
+                      {isOvertime && <AlertTriangle className="w-5 h-5 text-red-600 animate-pulse" title="已等待超過10分鐘" />}
+                      {t.isReturned && <span className="bg-orange-100 text-orange-700 text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider border border-orange-200">返回隊列</span>}
                     </div>
-                    <div className={`text-xs font-medium mt-1 w-max px-2 py-0.5 rounded-full ${isOvertime ? 'bg-red-200 text-red-800' : 'bg-gray-100 text-gray-600'}`}>Wait: {waitTime} min</div>
-                    {t.memo && <div className={`text-xs mt-2 p-1.5 rounded border flex items-start gap-1 truncate shadow-sm ${isOvertime ? 'bg-white border-red-200 text-red-700' : 'bg-blue-50 border-blue-100 text-blue-700'}`} title={t.memo}><FileEdit className="w-3 h-3 shrink-0 mt-0.5"/> <span className="truncate">{t.memo}</span></div>}
+                    <div className={`text-xs font-bold mt-1 w-max px-2 py-0.5 rounded-full ${isOvertime ? 'bg-red-200 text-red-800' : 'bg-gray-100 text-gray-600'}`}>已等待: {waitTime} 分鐘</div>
+                    {t.memo && <div className={`text-xs mt-2 p-1.5 rounded border flex items-start gap-1 truncate shadow-sm ${isOvertime ? 'bg-white border-red-200 text-red-700' : 'bg-blue-50 border-blue-100 text-blue-700'}`} title={t.memo}><FileEdit className="w-3 h-3 shrink-0 mt-0.5"/> <span className="truncate font-bold">{t.memo}</span></div>}
                   </div>
                   <div className="flex gap-2 shrink-0 items-center">
-                    <button onClick={() => updateTicketStatus(t.id, 'calling', panelRoom)} className={`px-4 py-2 font-bold rounded-lg text-sm transition-all shadow-sm active:scale-95 ${isOvertime ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-blue-100 text-blue-700 hover:bg-blue-600 hover:text-white lg:opacity-0 lg:group-hover:opacity-100'}`}>Call</button>
+                    <button onClick={() => updateTicketStatus(t.id, 'calling', panelRoom)} className={`px-4 py-2 font-bold rounded-lg text-sm transition-all shadow-sm active:scale-95 ${isOvertime ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-blue-100 text-blue-700 hover:bg-blue-600 hover:text-white lg:opacity-0 lg:group-hover:opacity-100'}`}>叫號 Call</button>
                     <button onClick={() => setMemoModal({ id: t.id, displayId: displayId, text: t.memo || '' })} className="px-3 py-2 bg-white border border-gray-200 text-gray-500 rounded-lg text-sm flex items-center justify-center hover:text-blue-600 lg:opacity-0 lg:group-hover:opacity-100 transition-all shadow-sm" title="Edit Memo"><Edit3 className="w-4 h-4"/></button>
                     <button onClick={() => setDeleteModal({ id: t.id, displayId: displayId })} className="px-3 py-2 bg-white border border-gray-200 text-red-500 rounded-lg text-sm flex items-center justify-center hover:text-white hover:bg-red-500 lg:opacity-0 lg:group-hover:opacity-100 transition-all shadow-sm" title="Cancel Ticket"><Trash2 className="w-4 h-4"/></button>
                   </div>
@@ -686,7 +698,7 @@ const ReportsView = ({ tickets }) => {
 
     let waitTimes = [];
     let turnaroundTimes = [];
-    let serviceCounts = { A: 0, B: 0, C: 0 };
+    let serviceCounts = { A: 0, B: 0, C: 0, D: 0, E: 0, F: 0 };
     let counterCounts = {};
     let hourCounts = {};
     
@@ -704,7 +716,6 @@ const ReportsView = ({ tickets }) => {
       }
       
       // Peak Hour Calculation
-      const created = new Date(t.createdAt).getTime();
       const hour = new Date(t.createdAt).getHours();
       if (hourCounts[hour] !== undefined) hourCounts[hour]++;
 
@@ -721,11 +732,12 @@ const ReportsView = ({ tickets }) => {
           counterCounts[t.calledByCounter] = (counterCounts[t.calledByCounter] || 0) + 1;
         }
 
+        const cAt = new Date(t.createdAt).getTime();
         const called = t.calledAt ? new Date(t.calledAt).getTime() : null;
         const completed = t.completedAt ? new Date(t.completedAt).getTime() : null;
 
-        if (called) waitTimes.push(called - created);
-        if (completed) turnaroundTimes.push(completed - created);
+        if (called) waitTimes.push(called - cAt);
+        if (completed) turnaroundTimes.push(completed - cAt);
       }
     });
 
@@ -754,15 +766,15 @@ const ReportsView = ({ tickets }) => {
         
         {/* Header & Controls */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 rounded-2xl shadow-sm border border-gray-200">
-          <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2"><BarChart3 className="w-6 h-6 text-blue-600"/> Analytics Dashboard</h1>
+          <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2"><BarChart3 className="w-6 h-6 text-blue-600"/> 數據分析 Dashboard</h1>
           <div className="flex bg-gray-100 p-1 rounded-lg self-stretch sm:self-auto">
             {['today', 'week', 'month', 'all'].map(tf => (
               <button 
                 key={tf} 
                 onClick={() => setTimeframe(tf)} 
-                className={`flex-1 sm:flex-none px-4 py-2 text-sm font-bold rounded-md capitalize transition-all ${timeframe === tf ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+                className={`flex-1 sm:flex-none px-4 py-2 text-sm font-bold rounded-md transition-all ${timeframe === tf ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
               >
-                {tf === 'all' ? 'All Time' : tf === 'today' ? 'Today' : `This ${tf}`}
+                {tf === 'all' ? '所有記錄' : tf === 'today' ? '今日' : tf === 'week' ? '本週' : '本月'}
               </button>
             ))}
           </div>
@@ -771,25 +783,25 @@ const ReportsView = ({ tickets }) => {
         {/* Top KPI Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm flex flex-col justify-center">
-            <div className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-1 flex items-center gap-2"><Ticket className="w-4 h-4"/> Total Tickets</div>
+            <div className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-1 flex items-center gap-2"><Ticket className="w-4 h-4"/> 總籌號量 Total</div>
             <div className="text-4xl font-black text-gray-900">{stats.totalGenerated}</div>
             <div className="flex items-center gap-2 mt-2 flex-wrap">
-              <div className="text-xs text-green-700 font-bold bg-green-50 px-2 py-1 rounded border border-green-100">{stats.completed} Completed</div>
-              <div className="text-xs text-red-700 font-bold bg-red-50 px-2 py-1 rounded border border-red-100">{stats.cancelled} Cancelled</div>
+              <div className="text-xs text-green-700 font-bold bg-green-50 px-2 py-1 rounded border border-green-100">{stats.completed} 已完成</div>
+              <div className="text-xs text-red-700 font-bold bg-red-50 px-2 py-1 rounded border border-red-100">{stats.cancelled} 已取消</div>
             </div>
           </div>
           <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm flex flex-col justify-center">
-            <div className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-1 flex items-center gap-2"><Timer className="w-4 h-4"/> Avg Wait Time</div>
-            <div className="flex items-baseline gap-1"><span className="text-4xl font-black text-blue-600">{stats.avgWait}</span><span className="text-gray-500 font-bold">min</span></div>
-            <div className="text-xs text-gray-400 font-bold mt-2">Max: {stats.maxWait} min</div>
+            <div className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-1 flex items-center gap-2"><Timer className="w-4 h-4"/> 平均等待 Avg Wait</div>
+            <div className="flex items-baseline gap-1"><span className="text-4xl font-black text-blue-600">{stats.avgWait}</span><span className="text-gray-500 font-bold">分鐘</span></div>
+            <div className="text-xs text-gray-400 font-bold mt-2">最長: {stats.maxWait} 分鐘</div>
           </div>
           <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm flex flex-col justify-center">
-            <div className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-1 flex items-center gap-2"><Clock className="w-4 h-4"/> Avg Turnaround</div>
-            <div className="flex items-baseline gap-1"><span className="text-4xl font-black text-purple-600">{stats.avgTurnaround}</span><span className="text-gray-500 font-bold">min</span></div>
-            <div className="text-xs text-gray-400 font-bold mt-2">From print to complete</div>
+            <div className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-1 flex items-center gap-2"><Clock className="w-4 h-4"/> 平均周轉時間</div>
+            <div className="flex items-baseline gap-1"><span className="text-4xl font-black text-purple-600">{stats.avgTurnaround}</span><span className="text-gray-500 font-bold">分鐘</span></div>
+            <div className="text-xs text-gray-400 font-bold mt-2">從取籌到完成</div>
           </div>
           <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm flex flex-col justify-center">
-            <div className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-1 flex items-center gap-2"><TrendingUp className="w-4 h-4"/> Completion Rate</div>
+            <div className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-1 flex items-center gap-2"><TrendingUp className="w-4 h-4"/> 服務完成率</div>
             <div className="text-4xl font-black text-emerald-500">{stats.totalGenerated ? Math.round((stats.completed / stats.totalGenerated) * 100) : 0}%</div>
             <div className="w-full bg-gray-100 rounded-full h-2 mt-3 overflow-hidden"><div className="bg-emerald-500 h-2 rounded-full" style={{width: `${stats.totalGenerated ? (stats.completed / stats.totalGenerated) * 100 : 0}%`}}></div></div>
           </div>
@@ -797,9 +809,8 @@ const ReportsView = ({ tickets }) => {
 
         {/* Breakdown Row */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Service Breakdown */}
           <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
-            <h3 className="text-lg font-bold text-gray-800 mb-6 flex items-center gap-2"><Info className="w-5 h-5 text-gray-400"/> Services Requested</h3>
+            <h3 className="text-lg font-bold text-gray-800 mb-6 flex items-center gap-2"><Info className="w-5 h-5 text-gray-400"/> 服務類別分佈</h3>
             <div className="space-y-5">
               {SERVICES.map(s => {
                 const count = stats.serviceCounts[s.id] || 0;
@@ -807,7 +818,7 @@ const ReportsView = ({ tickets }) => {
                 return (
                   <div key={s.id}>
                     <div className="flex justify-between text-sm font-bold text-gray-700 mb-1">
-                      <span>{s.id}: {s.name}</span>
+                      <span>{s.nameZh} ({s.id})</span>
                       <span>{count}</span>
                     </div>
                     <div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden">
@@ -819,9 +830,8 @@ const ReportsView = ({ tickets }) => {
             </div>
           </div>
 
-          {/* Workload by Counter */}
           <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
-            <h3 className="text-lg font-bold text-gray-800 mb-6 flex items-center gap-2"><UserCheck className="w-5 h-5 text-gray-400"/> Workload by Counter</h3>
+            <h3 className="text-lg font-bold text-gray-800 mb-6 flex items-center gap-2"><UserCheck className="w-5 h-5 text-gray-400"/> 各櫃位工作量</h3>
             <div className="space-y-4">
               {STATIONS.map(station => {
                 const count = stats.counterCounts[station] || 0;
@@ -842,24 +852,18 @@ const ReportsView = ({ tickets }) => {
 
         {/* Peak Hours Chart */}
         <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
-          <h3 className="text-lg font-bold text-gray-800 mb-6 flex items-center gap-2"><Calendar className="w-5 h-5 text-gray-400"/> Peak Hours Analysis (Tickets Generated)</h3>
+          <h3 className="text-lg font-bold text-gray-800 mb-6 flex items-center gap-2"><Calendar className="w-5 h-5 text-gray-400"/> 高峰時段分析 (取籌量)</h3>
           <div className="h-48 flex items-end gap-2 md:gap-4 mt-8 pb-6 border-b border-gray-100">
             {Object.entries(stats.hourCounts).map(([hour, count]) => {
               const height = (count / maxHourVal) * 100;
               const timeLabel = hour > 12 ? `${hour-12} PM` : hour == 12 ? '12 PM' : `${hour} AM`;
               return (
                 <div key={hour} className="flex-1 flex flex-col items-center justify-end h-full group relative">
-                  {/* Tooltip */}
                   <div className="opacity-0 group-hover:opacity-100 absolute -top-8 bg-gray-800 text-white text-xs font-bold px-2 py-1 rounded transition-opacity">
-                    {count} tickets
+                    {count} 籌
                   </div>
-                  {/* Bar */}
-                  <div 
-                    className="w-full bg-blue-500 hover:bg-blue-400 rounded-t-md transition-all duration-1000" 
-                    style={{height: `${height}%`, minHeight: count > 0 ? '4px' : '0'}}
-                  ></div>
-                  {/* Label */}
-                  <div className="absolute -bottom-6 text-[10px] sm:text-xs font-medium text-gray-400 -rotate-45 sm:rotate-0 origin-top-left sm:origin-center mt-2">
+                  <div className="w-full bg-blue-500 hover:bg-blue-400 rounded-t-md transition-all duration-1000" style={{height: `${height}%`, minHeight: count > 0 ? '4px' : '0'}}></div>
+                  <div className="absolute -bottom-6 text-[10px] sm:text-xs font-medium text-gray-400 -rotate-45 sm:rotate-0 origin-top-left sm:origin-center mt-2 whitespace-nowrap">
                     {timeLabel}
                   </div>
                 </div>
@@ -880,7 +884,7 @@ export default function App() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
   const [tickets, setTickets] = useState([]);
-  const [counters, setCounters] = useState({ A: 0, B: 0, C: 0 });
+  const [counters, setCounters] = useState({ A: 0, B: 0, C: 0, D: 0, E: 0, F: 0 });
   const [lastCallEvent, setLastCallEvent] = useState({ id: null, time: null, counter: null });
   
   const [panelRoom, setPanelRoom] = useState(null);
@@ -910,7 +914,7 @@ export default function App() {
 
     const countersRef = collection(db, 'artifacts', appId, 'public', 'data', 'counters');
     const unsubCounters = onSnapshot(countersRef, (snapshot) => {
-      const loadedCounters = { A: 0, B: 0, C: 0 };
+      const loadedCounters = { A: 0, B: 0, C: 0, D: 0, E: 0, F: 0 };
       snapshot.forEach(doc => {
         loadedCounters[doc.id] = doc.data().count;
       });
@@ -942,7 +946,6 @@ export default function App() {
     
     const todayStr = currentTime.toDateString();
     
-    // 1. Cancel stale active/waiting tickets from previous days
     const staleTickets = tickets.filter(t => 
       ['waiting', 'calling', 'arrived'].includes(t.status) && 
       new Date(t.createdAt).toDateString() !== todayStr
@@ -956,7 +959,6 @@ export default function App() {
       });
     }
 
-    // 2. Safely reset daily counters back to 0 if we cross midnight
     const latestTicket = [...tickets].sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt))[0];
     if (latestTicket && new Date(latestTicket.createdAt).toDateString() !== todayStr) {
       let needsReset = false;
@@ -971,7 +973,7 @@ export default function App() {
         });
       }
     }
-  }, [currentTime, user]); // Driven reliably by the 30-second clock tick
+  }, [currentTime, user]);
 
   const waitingTickets = tickets.filter(t => t.status === 'waiting');
   const activeTickets = tickets.filter(t => ['calling', 'arrived'].includes(t.status));
@@ -979,7 +981,7 @@ export default function App() {
 
   const generateTicket = async (serviceId) => {
     if (!user) {
-      alert("Database connection is not ready. Please wait a moment or refresh the page.");
+      alert("資料庫連線尚未就緒，請稍候。 Database connection not ready.");
       return null;
     }
     
@@ -1014,7 +1016,7 @@ export default function App() {
       return newTicket;
     } catch (error) {
       console.error("Firebase write error:", error);
-      alert("Error generating ticket! Please check your Firebase connection or database rules.");
+      alert("產生籌號出錯！ Error generating ticket!");
       return null;
     }
   };
@@ -1059,7 +1061,7 @@ export default function App() {
     const t = tickets.find(t => t.id === ticketId);
     if (!t) return;
 
-    const prefix = "[Returned]";
+    const prefix = "[返回隊列]";
     const newMemoNote = reason ? `${prefix} ${reason}` : prefix;
     const finalMemo = t.memo ? `${t.memo} | ${newMemoNote}` : newMemoNote;
 
@@ -1081,7 +1083,7 @@ export default function App() {
     const t = tickets.find(t => t.id === ticketId);
     if (!t) return;
 
-    const prefix = "[Cancelled]";
+    const prefix = "[已取消]";
     const newMemoNote = reason ? `${prefix} ${reason}` : prefix;
     const finalMemo = t.memo ? `${t.memo} | ${newMemoNote}` : newMemoNote;
 
@@ -1103,22 +1105,19 @@ export default function App() {
         <div className="flex items-center gap-2 md:gap-3 cursor-pointer" onClick={() => setCurrentView('home')}>
           <img src={LOGO_PATH} alt="Logo" className="h-10 md:h-12 w-auto object-contain drop-shadow-sm" onError={(e) => e.target.style.display='none'} />
           <div className="bg-teal-600 p-1.5 md:p-2 rounded-lg hidden sm:block"><Ticket className="w-5 h-5 text-white" /></div>
-          <span className="font-bold text-lg md:text-xl text-gray-800 truncate">SJS Queue</span>
+          <span className="font-bold text-lg md:text-xl text-gray-800 truncate">SJS 排隊系統 Queue</span>
         </div>
 
-        {/* Mobile Menu Button */}
         <button className="md:hidden p-2 text-gray-600" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
           <Menu className="w-6 h-6" />
         </button>
 
-        {/* Desktop Nav */}
         <div className="hidden md:flex items-center bg-gray-100 p-1 rounded-lg gap-1">
           {['home', 'kiosk', 'monitor', 'panel', 'reports'].map(v => (
-            <button key={v} onClick={() => { if(['panel', 'reports'].includes(v) && !isStaffAuthenticated) setCurrentView('login'); else setCurrentView(v); }} className={`px-4 py-2 text-sm font-medium rounded-md transition-all ${currentView === v ? 'bg-white shadow text-blue-600' : 'text-gray-600 hover:bg-gray-200'}`}>{v.charAt(0).toUpperCase() + v.slice(1)}</button>
+            <button key={v} onClick={() => { if(['panel', 'reports'].includes(v) && !isStaffAuthenticated) setCurrentView('login'); else setCurrentView(v); }} className={`px-4 py-2 text-sm font-bold rounded-md transition-all ${currentView === v ? 'bg-white shadow text-blue-600' : 'text-gray-600 hover:bg-gray-200'}`}>{v === 'home' ? '首頁' : v === 'kiosk' ? '取籌機' : v === 'monitor' ? '叫號螢幕' : v === 'panel' ? '藥劑師' : '數據'}</button>
           ))}
         </div>
 
-        {/* Mobile Dropdown Nav */}
         {isMobileMenuOpen && (
           <div className="absolute top-16 left-0 right-0 bg-white border-b shadow-lg flex flex-col md:hidden py-2 px-4 space-y-2">
             {['home', 'kiosk', 'monitor', 'panel', 'reports'].map(v => (
@@ -1131,7 +1130,7 @@ export default function App() {
                 }} 
                 className={`px-4 py-3 text-left text-base font-bold rounded-lg ${currentView === v ? 'bg-blue-50 text-blue-600' : 'text-gray-700 hover:bg-gray-100'}`}
               >
-                {v.charAt(0).toUpperCase() + v.slice(1)}
+                {v === 'home' ? '首頁 Home' : v === 'kiosk' ? '取籌機 Kiosk' : v === 'monitor' ? '叫號螢幕 Monitor' : v === 'panel' ? '藥劑師控制台 Panel' : '分析數據 Reports'}
               </button>
             ))}
           </div>

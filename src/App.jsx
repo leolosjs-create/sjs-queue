@@ -128,7 +128,184 @@ const DeleteDialog = ({ deleteModal, onClose, onConfirm }) => {
   );
 };
 
-// --- SUB-VIEWS (Extracted Outside App to prevent unmounting) ---
+// --- MAIN APP COMPONENT ---
+export default function App() {
+  const [user, setUser] = useState(null);
+  const [currentView, setCurrentView] = useState('home');
+  const [isStaffAuthenticated, setIsStaffAuthenticated] = useState(false);
+  const [isMonitorStarted, setIsMonitorStarted] = useState(false); 
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  
+  const [tickets, setTickets] = useState([]);
+  const [counters, setCounters] = useState({ A: 0, B: 0, C: 0, D: 0, E: 0, F: 0 });
+  const [lastCallEvent, setLastCallEvent] = useState({ id: null, time: null, counter: null });
+  
+  const [panelRoom, setPanelRoom] = useState(null);
+  const [queueSortBy, setQueueSortBy] = useState('time');
+  const [memoModal, setMemoModal] = useState(null);
+  const [returnModal, setReturnModal] = useState(null);
+  const [deleteModal, setDeleteModal] = useState(null);
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  useEffect(() => {
+    signInAnonymously(auth).catch(err => console.error("Auth error:", err));
+    const unsubscribe = onAuthStateChanged(auth, setUser);
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    const ticketsRef = collection(db, 'artifacts', appId, 'public', 'data', 'tickets');
+    const unsubTickets = onSnapshot(ticketsRef, (snapshot) => {
+      const loadedTickets = []; snapshot.forEach(doc => loadedTickets.push(doc.data()));
+      setTickets(loadedTickets);
+    }, (err) => console.error("Firestore Error:", err));
+
+    const countersRef = collection(db, 'artifacts', appId, 'public', 'data', 'counters');
+    const unsubCounters = onSnapshot(countersRef, (snapshot) => {
+      const loadedCounters = { A: 0, B: 0, C: 0, D: 0, E: 0, F: 0 };
+      snapshot.forEach(doc => { loadedCounters[doc.id] = doc.data().count; });
+      setCounters(loadedCounters);
+    });
+
+    const displayRef = doc(db, 'artifacts', appId, 'public', 'data', 'system', 'display');
+    const unsubDisplay = onSnapshot(displayRef, (snapshot) => {
+      if (snapshot.exists()) setLastCallEvent(snapshot.data());
+    });
+
+    return () => { unsubTickets(); unsubCounters(); unsubDisplay(); };
+  }, [user]);
+
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 30000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Daily Reset Logic
+  useEffect(() => {
+    if (!user || tickets.length === 0) return;
+    const todayStr = currentTime.toDateString();
+    const staleTickets = tickets.filter(t => ['waiting', 'calling', 'arrived'].includes(t.status) && new Date(t.createdAt).toDateString() !== todayStr);
+    if (staleTickets.length > 0) {
+      staleTickets.forEach(async (t) => {
+        const ticketRef = doc(db, 'artifacts', appId, 'public', 'data', 'tickets', t.id);
+        const finalMemo = t.memo ? `${t.memo} | [System] Auto-cleared` : `[System] Auto-cleared`;
+        await setDoc(ticketRef, { ...t, status: 'cancelled', completedAt: new Date().toISOString(), memo: finalMemo });
+      });
+      SERVICES.forEach(async (s) => {
+        const counterRef = doc(db, 'artifacts', appId, 'public', 'data', 'counters', s.id);
+        await setDoc(counterRef, { count: 0 });
+      });
+    }
+  }, [currentTime, user, tickets]);
+
+  const generateTicket = async (serviceId) => {
+    if (!user) return null;
+    try {
+      const service = SERVICES.find(s => s.id === serviceId);
+      const newNum = (counters[serviceId] || 0) + 1;
+      const counterRef = doc(db, 'artifacts', appId, 'public', 'data', 'counters', serviceId);
+      await setDoc(counterRef, { count: newNum });
+      const ticketNumber = `${serviceId}${newNum.toString().padStart(3, '0')}`;
+      const docId = `ticket_${Date.now()}`;
+      const newTicket = { id: docId, ticketNumber, type: serviceId, serviceName: service.name, serviceNameZh: service.nameZh, status: 'waiting', createdAt: new Date().toISOString(), calledAt: null, arrivedAt: null, completedAt: null, calledByCounter: null, memo: '', isReturned: false };
+      const ticketRef = doc(db, 'artifacts', appId, 'public', 'data', 'tickets', docId);
+      await setDoc(ticketRef, newTicket);
+      return newTicket;
+    } catch (e) { console.error(e); return null; }
+  };
+
+  const updateTicketStatus = async (ticketId, newStatus, counterName = null) => {
+    if (!user) return;
+    const t = tickets.find(t => t.id === ticketId);
+    if (!t) return;
+    const timestamp = new Date().toISOString();
+    const updated = { ...t, status: newStatus };
+    if (newStatus === 'calling') { if (!t.calledAt) updated.calledAt = timestamp; if (counterName) updated.calledByCounter = counterName; }
+    if (newStatus === 'arrived') updated.arrivedAt = timestamp;
+    if (newStatus === 'completed' || newStatus === 'missed') updated.completedAt = timestamp;
+    const ticketRef = doc(db, 'artifacts', appId, 'public', 'data', 'tickets', ticketId);
+    await setDoc(ticketRef, updated);
+    
+    // Only dispatch a new voice call event if the status is strictly 'calling'
+    if (newStatus === 'calling') {
+      const displayRef = doc(db, 'artifacts', appId, 'public', 'data', 'system', 'display');
+      await setDoc(displayRef, { id: ticketId, time: Date.now(), counter: counterName || updated.calledByCounter });
+    }
+  };
+
+  const updateTicketMemo = async (ticketId, memoText) => {
+    if (!user) return;
+    const t = tickets.find(t => t.id === ticketId);
+    if (!t) return;
+    const ticketRef = doc(db, 'artifacts', appId, 'public', 'data', 'tickets', ticketId);
+    await setDoc(ticketRef, { ...t, memo: memoText });
+    setMemoModal(null);
+  };
+
+  const handleReturnTicket = async (ticketId, reason) => {
+    if (!user) return;
+    const t = tickets.find(t => t.id === ticketId);
+    if (!t) return;
+    const finalMemo = t.memo ? `${t.memo} | [返回] ${reason}` : `[返回] ${reason}`;
+    const ticketRef = doc(db, 'artifacts', appId, 'public', 'data', 'tickets', ticketId);
+    await setDoc(ticketRef, { ...t, status: 'waiting', calledByCounter: null, memo: finalMemo, isReturned: true });
+    setReturnModal(null);
+  };
+
+  const handleDeleteTicket = async (ticketId, reason) => {
+    if (!user) return;
+    const t = tickets.find(t => t.id === ticketId);
+    if (!t) return;
+    const finalMemo = t.memo ? `${t.memo} | [取消] ${reason}` : `[取消] ${reason}`;
+    const ticketRef = doc(db, 'artifacts', appId, 'public', 'data', 'tickets', ticketId);
+    await setDoc(ticketRef, { ...t, status: 'cancelled', completedAt: new Date().toISOString(), memo: finalMemo });
+    setDeleteModal(null);
+  };
+
+  const waitingTickets = tickets.filter(t => t.status === 'waiting');
+  const activeTickets = tickets.filter(t => ['calling', 'arrived'].includes(t.status));
+  const completedTickets = tickets.filter(t => ['completed', 'missed', 'cancelled'].includes(t.status));
+
+  return (
+    <div className="min-h-screen font-sans bg-gray-50 print:bg-white overflow-x-hidden">
+      <nav className="h-16 bg-white border-b flex items-center justify-between px-4 md:px-6 shadow-sm print:hidden relative z-50">
+        <div className="flex items-center gap-2 md:gap-3 cursor-pointer" onClick={() => setCurrentView('home')}>
+          <img src={LOGO_PATH} alt="Logo" className="h-10 md:h-12 w-auto object-contain drop-shadow-sm" onError={(e) => e.target.style.display='none'} />
+          <div className="bg-teal-600 p-1.5 md:p-2 rounded-lg hidden sm:block"><Ticket className="w-5 h-5 text-white" /></div>
+          <span className="font-bold text-lg md:text-xl text-gray-800 truncate tracking-tight">SJS 排隊系統 Queue</span>
+        </div>
+        <button className="md:hidden p-2 text-gray-600" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}><Menu className="w-6 h-6" /></button>
+        <div className="hidden md:flex items-center bg-gray-100 p-1 rounded-lg gap-1">
+          {['home', 'kiosk', 'monitor', 'panel', 'reports'].map(v => (
+            <button key={v} onClick={() => { if(['panel', 'reports'].includes(v) && !isStaffAuthenticated) setCurrentView('login'); else setCurrentView(v); }} className={`px-4 py-2 text-sm font-bold rounded-md transition-all ${currentView === v ? 'bg-white shadow text-blue-600' : 'text-gray-600 hover:bg-gray-200'}`}>{v === 'home' ? '首頁' : v === 'kiosk' ? '取籌機' : v === 'monitor' ? '叫號螢幕' : v === 'panel' ? '藥劑師' : '數據'}</button>
+          ))}
+        </div>
+        {isMobileMenuOpen && (
+          <div className="absolute top-16 left-0 right-0 bg-white border-b shadow-lg flex flex-col md:hidden py-2 px-4 space-y-2">
+            {['home', 'kiosk', 'monitor', 'panel', 'reports'].map(v => (
+              <button key={v} onClick={() => { setIsMobileMenuOpen(false); if(['panel', 'reports'].includes(v) && !isStaffAuthenticated) setCurrentView('login'); else setCurrentView(v); }} className={`px-4 py-3 text-left text-base font-bold rounded-lg ${currentView === v ? 'bg-blue-50 text-blue-600' : 'text-gray-700 hover:bg-gray-100'}`}>{v === 'home' ? '首頁 Home' : v === 'kiosk' ? '取籌機 Kiosk' : v === 'monitor' ? '叫號螢幕 Monitor' : v === 'panel' ? '藥劑師控制台 Panel' : '分析數據 Reports'}</button>
+            ))}
+          </div>
+        )}
+      </nav>
+      <main>
+        {currentView === 'home' && <HomeView setCurrentView={setCurrentView} isStaffAuthenticated={isStaffAuthenticated} />}
+        {currentView === 'login' && <LoginView setCurrentView={setCurrentView} setIsStaffAuthenticated={setIsStaffAuthenticated} />}
+        {currentView === 'kiosk' && <KioskView generateTicket={generateTicket} />}
+        {currentView === 'monitor' && <MonitorView tickets={tickets} waitingTickets={waitingTickets} lastCallEvent={lastCallEvent} isStarted={isMonitorStarted} onStart={() => setIsMonitorStarted(true)} currentTime={currentTime} />}
+        {currentView === 'panel' && <PanelView panelRoom={panelRoom} setPanelRoom={setPanelRoom} waitingTickets={waitingTickets} activeTickets={activeTickets} completedTickets={completedTickets} queueSortBy={queueSortBy} setQueueSortBy={setQueueSortBy} updateTicketStatus={updateTicketStatus} setMemoModal={setMemoModal} setReturnModal={setReturnModal} setDeleteModal={setDeleteModal} currentTime={currentTime} setIsStaffAuthenticated={setIsStaffAuthenticated} setCurrentView={setCurrentView} />}
+        {currentView === 'reports' && <ReportsView tickets={tickets} setIsStaffAuthenticated={setIsStaffAuthenticated} setCurrentView={setCurrentView} />}
+      </main>
+      {memoModal && <MemoDialog memoModal={memoModal} onClose={() => setMemoModal(null)} onSave={updateTicketMemo} />}
+      {returnModal && <ReturnDialog returnModal={returnModal} onClose={() => setReturnModal(null)} onConfirm={handleReturnTicket} />}
+      {deleteModal && <DeleteDialog deleteModal={deleteModal} onClose={() => setDeleteModal(null)} onConfirm={handleDeleteTicket} />}
+    </div>
+  );
+}
+
+// --- EXTRACTED VIEWS (To prevent re-mounting) ---
+
 const HomeView = ({ setCurrentView, isStaffAuthenticated }) => (
   <div className="flex flex-col items-center justify-center min-h-[calc(100vh-64px)] bg-gray-50 p-4 md:p-8 print:hidden">
     <div className="max-w-5xl w-full text-center space-y-6 md:space-y-8">
@@ -215,15 +392,11 @@ const KioskView = ({ generateTicket }) => {
       setPrintedTicket(ticket);
       
       if (useAndroidUSB) {
-        printLock.current = true; // Lock out the normal browser print popup
+        printLock.current = true; 
         try {
-          // Construct the ESC/POS Raw String
           const receiptText = `\x1B\x40\x1B\x61\x01${PHARMACY_NAME_ZH}\n${PHARMACY_NAME}\n\n${ticket.serviceNameZh}\n${ticket.serviceName}\n\nTicket Number:\n\x1D\x21\x11${ticket.ticketNumber || ticket.id}\x1D\x21\x00\n\n${formatDate(ticket.createdAt)}\n${formatTime(ticket.createdAt)}\n\n\n\n\n\x1DV\x00`;
-          
-          // Proper UTF-8 to Base64 Encoding for RawBT to handle Chinese characters
           const base64Data = window.btoa(unescape(encodeURIComponent(receiptText)));
           const rawbtUrl = `rawbt:base64,${base64Data}`;
-          
           window.location.href = rawbtUrl;
         } catch (error) {
           console.error("RawBT Encoding Error:", error);
@@ -232,13 +405,6 @@ const KioskView = ({ generateTicket }) => {
       }
     }
     setIsGenerating(false);
-  };
-
-  const handleManualPrint = () => {
-    window.print();
-    setTimeout(() => {
-      setPrintedTicket(null);
-    }, 3000);
   };
 
   return (
@@ -278,7 +444,7 @@ const KioskView = ({ generateTicket }) => {
                 <h2 className="text-xl font-bold text-gray-800 mb-1">您的籌號 Your Ticket</h2>
                 <div className="text-7xl md:text-8xl font-black text-blue-600 my-4 tracking-tighter">{printedTicket.ticketNumber || printedTicket.id}</div>
                 {!useAndroidUSB && (
-                  <button onClick={handleManualPrint} className="mt-2 bg-blue-50 text-blue-700 font-bold py-4 px-6 rounded-full flex items-center justify-center gap-2 hover:bg-blue-100 transition-colors w-full border border-blue-200 mb-6 text-xl"><Printer className="w-6 h-6" /> 列印籌號 Print</button>
+                  <button onClick={() => { window.print(); setTimeout(() => setPrintedTicket(null), 3000); }} className="mt-2 bg-blue-50 text-blue-700 font-bold py-4 px-6 rounded-full flex items-center justify-center gap-2 hover:bg-blue-100 transition-colors w-full border border-blue-200 mb-6 text-xl"><Printer className="w-6 h-6" /> 列印籌號 Print</button>
                 )}
                 <button onClick={() => setPrintedTicket(null)} className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold w-full py-4 rounded-xl transition-colors">關閉 Close</button>
               </div>
@@ -287,7 +453,6 @@ const KioskView = ({ generateTicket }) => {
         </div>
       </div>
 
-      {/* --- PRINTABLE TICKET --- */}
       {printedTicket && !useAndroidUSB && (
         <div className="hidden print:block text-black text-center w-full max-w-[80mm] mx-auto p-4 font-sans bg-white z-[9999] m-0">
           <div className="flex flex-col items-center mb-4 border-b-2 border-black pb-4 text-center">
@@ -312,7 +477,7 @@ const KioskView = ({ generateTicket }) => {
   );
 };
 
-const MonitorView = ({ tickets, waitingTickets, lastCallEvent, isStarted, onStart }) => {
+const MonitorView = ({ tickets, waitingTickets, lastCallEvent, isStarted, onStart, currentTime }) => {
   const currentTicket = tickets.find(t => t.id === lastCallEvent.id);
   const displayId = currentTicket ? (currentTicket.ticketNumber || currentTicket.id) : '---';
   const [flash, setFlash] = useState(false);
@@ -321,22 +486,17 @@ const MonitorView = ({ tickets, waitingTickets, lastCallEvent, isStarted, onStar
   useEffect(() => { ticketsRef.current = tickets; }, [tickets]);
 
   useEffect(() => {
-    // Only trigger voice if it's a valid call time AND the monitor is started
     if (lastCallEvent.time && isStarted) {
-      
-      // Prevent stale calls from triggering when the app is first opened
       if (Date.now() - lastCallEvent.time > 15000) return;
 
       setFlash(true);
       const timer = setTimeout(() => setFlash(false), 3000);
       
       if (window.speechSynthesis) {
-        window.speechSynthesis.cancel(); // Stop any currently playing audio
+        window.speechSynthesis.cancel();
         setTimeout(() => {
-          // Look up the exact ticket that was called
           const t = ticketsRef.current.find(ticket => ticket.id === lastCallEvent.id);
           
-          // Only announce if the ticket exists and actually has a counter assigned
           if (t && t.calledByCounter) {
             const tNumber = (t.ticketNumber || t.id);
             const formattedTicket = tNumber.split('').join(' '); 
@@ -356,8 +516,6 @@ const MonitorView = ({ tickets, waitingTickets, lastCallEvent, isStarted, onStar
       }
       return () => clearTimeout(timer);
     }
-  // IMPORTANT FIX: We ONLY depend on lastCallEvent.time and isStarted. 
-  // We strictly DO NOT depend on tickets or currentTicket, so it doesn't loop when status updates
   }, [lastCallEvent.time, isStarted]); 
 
   if (!isStarted) {
@@ -467,7 +625,7 @@ const PanelView = ({
               return (
                 <button key={service.id} onClick={() => next && updateTicketStatus(next.id, 'calling', panelRoom)} disabled={!next} className={`p-3 rounded-xl border-2 text-left transition-all ${next ? 'border-blue-300 bg-blue-50 hover:bg-blue-100 shadow-sm active:scale-95 cursor-pointer' : 'border-gray-100 bg-gray-50 opacity-50 cursor-not-allowed'}`}>
                   <div className="text-[10px] sm:text-xs font-bold text-blue-600 uppercase tracking-wider mb-1 truncate" title={service.nameZh}>{service.nameZh}</div>
-                  <div className="text-xl sm:text-2xl lg:text-3xl font-black text-gray-900">{next ? (next.ticketNumber || next.id) : '--'}</div>
+                  <div className="text-xl sm:text-2xl lg:text-3xl font-black text-gray-900">{next ? next.ticketNumber : '--'}</div>
                 </button>
               );
             })}
@@ -615,179 +773,3 @@ const ReportsView = ({ tickets }) => {
     </div>
   );
 };
-
-export default function App() {
-  const [user, setUser] = useState(null);
-  const [currentView, setCurrentView] = useState('home');
-  const [isStaffAuthenticated, setIsStaffAuthenticated] = useState(false);
-  const [isMonitorStarted, setIsMonitorStarted] = useState(false); 
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  
-  const [tickets, setTickets] = useState([]);
-  const [counters, setCounters] = useState({ A: 0, B: 0, C: 0, D: 0, E: 0, F: 0 });
-  const [lastCallEvent, setLastCallEvent] = useState({ id: null, time: null, counter: null });
-  
-  const [panelRoom, setPanelRoom] = useState(null);
-  const [queueSortBy, setQueueSortBy] = useState('time');
-  const [memoModal, setMemoModal] = useState(null);
-  const [returnModal, setReturnModal] = useState(null);
-  const [deleteModal, setDeleteModal] = useState(null);
-  const [currentTime, setCurrentTime] = useState(new Date());
-
-  useEffect(() => {
-    signInAnonymously(auth).catch(err => console.error("Auth error:", err));
-    const unsubscribe = onAuthStateChanged(auth, setUser);
-    return () => unsubscribe();
-  }, []);
-
-  useEffect(() => {
-    if (!user) return;
-    const ticketsRef = collection(db, 'artifacts', appId, 'public', 'data', 'tickets');
-    const unsubTickets = onSnapshot(ticketsRef, (snapshot) => {
-      const loadedTickets = []; snapshot.forEach(doc => loadedTickets.push(doc.data()));
-      setTickets(loadedTickets);
-    }, (err) => console.error("Firestore Error:", err));
-
-    const countersRef = collection(db, 'artifacts', appId, 'public', 'data', 'counters');
-    const unsubCounters = onSnapshot(countersRef, (snapshot) => {
-      const loadedCounters = { A: 0, B: 0, C: 0, D: 0, E: 0, F: 0 };
-      snapshot.forEach(doc => { loadedCounters[doc.id] = doc.data().count; });
-      setCounters(loadedCounters);
-    });
-
-    const displayRef = doc(db, 'artifacts', appId, 'public', 'data', 'system', 'display');
-    const unsubDisplay = onSnapshot(displayRef, (snapshot) => {
-      if (snapshot.exists()) setLastCallEvent(snapshot.data());
-    });
-
-    return () => { unsubTickets(); unsubCounters(); unsubDisplay(); };
-  }, [user]);
-
-  useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 30000);
-    return () => clearInterval(timer);
-  }, []);
-
-  useEffect(() => {
-    if (!user || tickets.length === 0) return;
-    const todayStr = currentTime.toDateString();
-    const staleTickets = tickets.filter(t => ['waiting', 'calling', 'arrived'].includes(t.status) && new Date(t.createdAt).toDateString() !== todayStr);
-    if (staleTickets.length > 0) {
-      staleTickets.forEach(async (t) => {
-        const ticketRef = doc(db, 'artifacts', appId, 'public', 'data', 'tickets', t.id);
-        const finalMemo = t.memo ? `${t.memo} | [System] Auto-cleared` : `[System] Auto-cleared`;
-        await setDoc(ticketRef, { ...t, status: 'cancelled', completedAt: new Date().toISOString(), memo: finalMemo });
-      });
-      SERVICES.forEach(async (s) => {
-        const counterRef = doc(db, 'artifacts', appId, 'public', 'data', 'counters', s.id);
-        await setDoc(counterRef, { count: 0 });
-      });
-    }
-  }, [currentTime, user, tickets]);
-
-  const generateTicket = async (serviceId) => {
-    if (!user) return null;
-    try {
-      const service = SERVICES.find(s => s.id === serviceId);
-      const newNum = (counters[serviceId] || 0) + 1;
-      const counterRef = doc(db, 'artifacts', appId, 'public', 'data', 'counters', serviceId);
-      await setDoc(counterRef, { count: newNum });
-      const ticketNumber = `${serviceId}${newNum.toString().padStart(3, '0')}`;
-      const docId = `ticket_${Date.now()}`;
-      const newTicket = { id: docId, ticketNumber, type: serviceId, serviceName: service.name, serviceNameZh: service.nameZh, status: 'waiting', createdAt: new Date().toISOString(), calledAt: null, arrivedAt: null, completedAt: null, calledByCounter: null, memo: '', isReturned: false };
-      const ticketRef = doc(db, 'artifacts', appId, 'public', 'data', 'tickets', docId);
-      await setDoc(ticketRef, newTicket);
-      return newTicket;
-    } catch (e) { console.error(e); return null; }
-  };
-
-  const updateTicketStatus = async (ticketId, newStatus, counterName = null) => {
-    if (!user) return;
-    const t = tickets.find(t => t.id === ticketId);
-    if (!t) return;
-    const timestamp = new Date().toISOString();
-    const updated = { ...t, status: newStatus };
-    if (newStatus === 'calling') { if (!t.calledAt) updated.calledAt = timestamp; if (counterName) updated.calledByCounter = counterName; }
-    if (newStatus === 'arrived') updated.arrivedAt = timestamp;
-    if (newStatus === 'completed' || newStatus === 'missed') updated.completedAt = timestamp;
-    const ticketRef = doc(db, 'artifacts', appId, 'public', 'data', 'tickets', ticketId);
-    await setDoc(ticketRef, updated);
-    
-    // Only dispatch a new voice call event if the status is strictly 'calling'
-    if (newStatus === 'calling') {
-      const displayRef = doc(db, 'artifacts', appId, 'public', 'data', 'system', 'display');
-      await setDoc(displayRef, { id: ticketId, time: Date.now(), counter: counterName || updated.calledByCounter });
-    }
-  };
-
-  const updateTicketMemo = async (ticketId, memoText) => {
-    if (!user) return;
-    const t = tickets.find(t => t.id === ticketId);
-    if (!t) return;
-    const ticketRef = doc(db, 'artifacts', appId, 'public', 'data', 'tickets', ticketId);
-    await setDoc(ticketRef, { ...t, memo: memoText });
-    setMemoModal(null);
-  };
-
-  const handleReturnTicket = async (ticketId, reason) => {
-    if (!user) return;
-    const t = tickets.find(t => t.id === ticketId);
-    if (!t) return;
-    const finalMemo = t.memo ? `${t.memo} | [返回] ${reason}` : `[返回] ${reason}`;
-    const ticketRef = doc(db, 'artifacts', appId, 'public', 'data', 'tickets', ticketId);
-    await setDoc(ticketRef, { ...t, status: 'waiting', calledByCounter: null, memo: finalMemo, isReturned: true });
-    setReturnModal(null);
-  };
-
-  const handleDeleteTicket = async (ticketId, reason) => {
-    if (!user) return;
-    const t = tickets.find(t => t.id === ticketId);
-    if (!t) return;
-    const finalMemo = t.memo ? `${t.memo} | [取消] ${reason}` : `[取消] ${reason}`;
-    const ticketRef = doc(db, 'artifacts', appId, 'public', 'data', 'tickets', ticketId);
-    await setDoc(ticketRef, { ...t, status: 'cancelled', completedAt: new Date().toISOString(), memo: finalMemo });
-    setDeleteModal(null);
-  };
-
-  const todayStr = currentTime.toDateString();
-  const todayTickets = tickets.filter(t => new Date(t.createdAt).toDateString() === todayStr);
-  const waitingTickets = todayTickets.filter(t => t.status === 'waiting');
-  const activeTickets = todayTickets.filter(t => ['calling', 'arrived'].includes(t.status));
-  const completedTickets = todayTickets.filter(t => ['completed', 'missed', 'cancelled'].includes(t.status));
-
-  return (
-    <div className="min-h-screen font-sans bg-gray-50 print:bg-white overflow-x-hidden">
-      <nav className="h-16 bg-white border-b flex items-center justify-between px-4 md:px-6 shadow-sm print:hidden relative z-50">
-        <div className="flex items-center gap-2 md:gap-3 cursor-pointer" onClick={() => setCurrentView('home')}>
-          <img src={LOGO_PATH} alt="Logo" className="h-10 md:h-12 w-auto object-contain drop-shadow-sm" onError={(e) => e.target.style.display='none'} />
-          <div className="bg-teal-600 p-1.5 md:p-2 rounded-lg hidden sm:block"><Ticket className="w-5 h-5 text-white" /></div>
-          <span className="font-bold text-lg md:text-xl text-gray-800 truncate tracking-tight">SJS 排隊系統 Queue</span>
-        </div>
-        <button className="md:hidden p-2 text-gray-600" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}><Menu className="w-6 h-6" /></button>
-        <div className="hidden md:flex items-center bg-gray-100 p-1 rounded-lg gap-1">
-          {['home', 'kiosk', 'monitor', 'panel', 'reports'].map(v => (
-            <button key={v} onClick={() => { if(['panel', 'reports'].includes(v) && !isStaffAuthenticated) setCurrentView('login'); else setCurrentView(v); }} className={`px-4 py-2 text-sm font-bold rounded-md transition-all ${currentView === v ? 'bg-white shadow text-blue-600' : 'text-gray-600 hover:bg-gray-200'}`}>{v === 'home' ? '首頁' : v === 'kiosk' ? '取籌機' : v === 'monitor' ? '叫號螢幕' : v === 'panel' ? '藥劑師' : '數據'}</button>
-          ))}
-        </div>
-        {isMobileMenuOpen && (
-          <div className="absolute top-16 left-0 right-0 bg-white border-b shadow-lg flex flex-col md:hidden py-2 px-4 space-y-2">
-            {['home', 'kiosk', 'monitor', 'panel', 'reports'].map(v => (
-              <button key={v} onClick={() => { setIsMobileMenuOpen(false); if(['panel', 'reports'].includes(v) && !isStaffAuthenticated) setCurrentView('login'); else setCurrentView(v); }} className={`px-4 py-3 text-left text-base font-bold rounded-lg ${currentView === v ? 'bg-blue-50 text-blue-600' : 'text-gray-700 hover:bg-gray-100'}`}>{v === 'home' ? '首頁 Home' : v === 'kiosk' ? '取籌機 Kiosk' : v === 'monitor' ? '叫號螢幕 Monitor' : v === 'panel' ? '藥劑師控制台 Panel' : '分析數據 Reports'}</button>
-            ))}
-          </div>
-        )}
-      </nav>
-      <main>
-        {currentView === 'home' && <HomeView setCurrentView={setCurrentView} isStaffAuthenticated={isStaffAuthenticated} />}
-        {currentView === 'login' && <LoginView setCurrentView={setCurrentView} setIsStaffAuthenticated={setIsStaffAuthenticated} />}
-        {currentView === 'kiosk' && <KioskView generateTicket={generateTicket} />}
-        {currentView === 'monitor' && <MonitorView tickets={tickets} waitingTickets={waitingTickets} lastCallEvent={lastCallEvent} isStarted={isMonitorStarted} onStart={() => setIsMonitorStarted(true)} currentTime={currentTime} />}
-        {currentView === 'panel' && <PanelView panelRoom={panelRoom} setPanelRoom={setPanelRoom} waitingTickets={waitingTickets} activeTickets={activeTickets} completedTickets={completedTickets} queueSortBy={queueSortBy} setQueueSortBy={setQueueSortBy} updateTicketStatus={updateTicketStatus} setMemoModal={setMemoModal} setReturnModal={setReturnModal} setDeleteModal={setDeleteModal} currentTime={currentTime} setIsStaffAuthenticated={setIsStaffAuthenticated} setCurrentView={setCurrentView} />}
-        {currentView === 'reports' && <ReportsView tickets={tickets} />}
-      </main>
-      {memoModal && <MemoDialog memoModal={memoModal} onClose={() => setMemoModal(null)} onSave={updateTicketMemo} />}
-      {returnModal && <ReturnDialog returnModal={returnModal} onClose={() => setReturnModal(null)} onConfirm={handleReturnTicket} />}
-      {deleteModal && <DeleteDialog deleteModal={deleteModal} onClose={() => setDeleteModal(null)} onConfirm={handleDeleteTicket} />}
-    </div>
-  );
-}

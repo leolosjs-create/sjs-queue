@@ -9,12 +9,10 @@ import {
   ShoppingBag, ClipboardList, HeartPulse, Settings
 } from 'lucide-react';
 
-// --- FIREBASE CLOUD SYNC IMPORTS ---
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 import { getFirestore, collection, doc, setDoc, onSnapshot } from 'firebase/firestore';
 
-// --- INITIALIZE FIREBASE ---
 const firebaseConfig = {
   apiKey: "AIzaSyDeiVnmjGMs_Ma6oBdM108lUXyRYYo-4Lw",
   authDomain: "sjs-queuing-system.firebaseapp.com",
@@ -30,7 +28,6 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const appId = 'sjs-pharmacy-live'; 
 
-// --- CONFIGURATION ---
 const PHARMACY_NAME = "PHARM+ St. James' Settlement Community Pharmacy";
 const PHARMACY_NAME_ZH = "藥健同心聖雅各福群會社區藥房";
 const STAFF_PIN = "1234"; 
@@ -47,7 +44,6 @@ const SERVICES = [
 
 const STATIONS = ['Counter 1', 'Counter 2', 'Room 3', 'Room 4'];
 
-// --- HELPER FUNCTIONS ---
 const formatTime = (dateString) => {
   if (!dateString) return '--:--';
   const date = new Date(dateString);
@@ -65,7 +61,6 @@ const getWaitTimeMinutes = (createdAt, currentTime) => {
   return Math.max(0, Math.floor(diffMs / 60000));
 };
 
-// --- DIALOGS ---
 const MemoDialog = ({ memoModal, onClose, onSave }) => {
   const [text, setText] = useState(memoModal.text);
   return (
@@ -129,7 +124,6 @@ const DeleteDialog = ({ deleteModal, onClose, onConfirm }) => {
   );
 };
 
-// --- SUB-VIEWS ---
 const HomeView = ({ setCurrentView, isStaffAuthenticated }) => (
   <div className="flex flex-col items-center justify-center min-h-[calc(100vh-64px)] bg-gray-50 p-4 md:p-8 print:hidden">
     <div className="max-w-5xl w-full text-center space-y-6 md:space-y-8">
@@ -137,9 +131,6 @@ const HomeView = ({ setCurrentView, isStaffAuthenticated }) => (
       <div>
         <h1 className="text-4xl md:text-7xl font-bold text-gray-800 tracking-tight leading-tight mb-2">{PHARMACY_NAME_ZH}</h1>
         <h2 className="text-lg md:text-2xl text-gray-500 font-medium uppercase tracking-widest">{PHARMACY_NAME}</h2>
-      </div>
-      <div className="flex items-center justify-center gap-2 mt-4 text-green-700 bg-green-100 px-4 py-2 rounded-full w-max mx-auto shadow-sm border border-green-200">
-        <Database className="w-4 h-4 md:w-5 md:h-5" /> <span className="text-sm md:text-base font-bold">雲端同步已啟動 Cloud Sync Active</span>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mt-8 md:mt-12">
         <button onClick={() => setCurrentView('kiosk')} className="bg-white p-6 md:p-8 rounded-2xl shadow-lg hover:shadow-xl transition-all border border-gray-100 flex flex-col items-center">
@@ -189,97 +180,32 @@ const LoginView = ({ setCurrentView, setIsStaffAuthenticated }) => {
 };
 
 const KioskView = ({ generateTicket }) => {
-  const [useTabletMode, setUseTabletMode] = useState(true);
   const [printedTicket, setPrintedTicket] = useState(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const printLock = useRef(false);
 
   useEffect(() => {
-    if (printedTicket && !printLock.current && !useTabletMode) {
+    if (printedTicket && !printLock.current) {
       printLock.current = true;
       const timer = setTimeout(() => {
         window.print();
         setTimeout(() => { setPrintedTicket(null); }, 3000); 
-      }, 300); 
+      }, 500); // 500ms delay to ensure the popup renders before print blocks main thread
       return () => clearTimeout(timer);
     }
-  }, [printedTicket, useTabletMode]);
+  }, [printedTicket]);
 
   const handlePrint = async (serviceId) => {
     if (isGenerating) return;
     setIsGenerating(true);
     printLock.current = false;
     
-    const ticket = await generateTicket(serviceId);
-    
-    if (ticket) {
-      setPrintedTicket(ticket);
-      
-      if (useTabletMode) {
-        printLock.current = true; 
-        try {
-          if (window.starprnt) {
-            const emulation = 'TSP100'; 
-            window.starprnt.portDiscovery('USB', 
-              (devices) => {
-                const port = (devices && devices.length > 0) ? devices[0].portName : 'USB:';
-                const commands = [];
-                commands.push({ appendAlignment: 'Center' });
-                commands.push({ appendCharacterSpace: 0 });
-                commands.push({ appendCodePage: 'CP950' }); 
-                commands.push({ appendText: `${PHARMACY_NAME_ZH}\n` });
-                commands.push({ appendText: `${PHARMACY_NAME}\n\n` });
-                commands.push({ appendMultiple: { width: 2, height: 2 } });
-                commands.push({ appendText: `${ticket.serviceNameZh}\n` });
-                commands.push({ appendMultiple: { width: 1, height: 1 } });
-                commands.push({ appendText: `${ticket.serviceName}\n` });
-                commands.push({ appendText: '--------------------------------\n' });
-                commands.push({ appendText: 'Ticket Number:\n' });
-                commands.push({ appendMultiple: { width: 3, height: 3 } });
-                commands.push({ appendText: `${ticket.ticketNumber || ticket.id}\n` });
-                commands.push({ appendMultiple: { width: 1, height: 1 } }); 
-                commands.push({ appendText: '--------------------------------\n' });
-                commands.push({ appendText: `${formatDate(ticket.createdAt)}\n` });
-                commands.push({ appendText: `${formatTime(ticket.createdAt)}\n\n\n\n` });
-                commands.push({ appendCutPaper: 'PartialCutWithFeed' });
-
-                window.starprnt.print(port, emulation, commands, 
-                  (result) => { console.log("Star Printer Success:", result); },
-                  (error) => { alert("Star Printer Error: Verify USB connection and printer power."); }
-                );
-              },
-              (discoveryError) => {
-                const defaultPort = 'USB:';
-                const commands = [
-                  { appendAlignment: 'Center' },
-                  { appendCodePage: 'CP950' },
-                  { appendText: `${PHARMACY_NAME_ZH}\n${PHARMACY_NAME}\n\n` },
-                  { appendMultiple: { width: 2, height: 2 } },
-                  { appendText: `${ticket.serviceNameZh}\n` },
-                  { appendMultiple: { width: 1, height: 1 } },
-                  { appendText: `${ticket.serviceName}\n\nTicket Number:\n` },
-                  { appendMultiple: { width: 3, height: 3 } },
-                  { appendText: `${ticket.ticketNumber || ticket.id}\n` },
-                  { appendMultiple: { width: 1, height: 1 } },
-                  { appendText: `\n${formatDate(ticket.createdAt)} ${formatTime(ticket.createdAt)}\n\n\n\n` },
-                  { appendCutPaper: 'PartialCutWithFeed' }
-                ];
-                window.starprnt.print(defaultPort, emulation, commands, null, (err) => alert("Failed to print directly on fallback port."));
-              }
-            );
-          } else {
-            const receiptText = `[align]center\n${PHARMACY_NAME_ZH}\n${PHARMACY_NAME}\n\n[mag]w2,h2\n${ticket.serviceNameZh}\n[mag]w1,h1\n${ticket.serviceName}\n--------------------------------\nTicket Number:\n[mag]w3,h3\n${ticket.ticketNumber || ticket.id}\n[mag]w1,h1\n--------------------------------\n${formatDate(ticket.createdAt)}\n${formatTime(ticket.createdAt)}\n\n\n\n[cut]`;
-            const encodedReceipt = encodeURIComponent(receiptText);
-            const passPrntUrl = `passprnt://v1/print?back=${encodeURIComponent(window.location.href)}&popup=no&driver=starprnt&port=usb:&data=${encodedReceipt}`;
-            window.location.href = passPrntUrl;
-          }
-        } catch (error) {
-          console.error("Printing Execution Error:", error);
-        }
-        setTimeout(() => setPrintedTicket(null), 3000); 
-      }
+    try {
+      const ticket = await generateTicket(serviceId);
+      if (ticket) setPrintedTicket(ticket);
+    } finally {
+      setIsGenerating(false);
     }
-    setIsGenerating(false);
   };
 
   const handleManualPrint = () => {
@@ -299,38 +225,28 @@ const KioskView = ({ generateTicket }) => {
             <p className="text-blue-100 text-lg md:text-2xl font-medium mt-1 text-center">請選擇服務以領取籌號<br/><span className="text-sm opacity-60 italic font-normal">Please select a service</span></p>
           </div>
           <div className="p-4 md:p-8 grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 overflow-y-auto">
-            {SERVICES.map(service => {
-              const Icon = service.icon;
-              return (
-                <button key={service.id} onClick={() => handlePrint(service.id)} disabled={isGenerating} className={`w-full ${service.color} ${service.hover} text-white p-4 md:p-6 rounded-2xl shadow-md transition-all active:scale-95 flex items-center justify-between group disabled:opacity-70`}>
-                  <div className="flex items-center gap-4 md:gap-5 text-left flex-1">
-                    <div className="bg-white text-slate-800 w-14 h-14 md:w-16 md:h-16 rounded-2xl shrink-0 flex items-center justify-center shadow-lg border-b-4 border-black/20 group-active:border-b-0 group-active:translate-y-1 transition-all">
-                      <span className="text-3xl md:text-4xl font-black">{service.id}</span>
-                    </div>
-                    <div className="flex-1 pl-1">
-                      <h2 className="text-xl md:text-2xl lg:text-3xl font-bold leading-tight mb-1">{service.nameZh}</h2>
-                      <h3 className="text-xs md:text-sm opacity-90 italic font-medium">{service.name}</h3>
-                    </div>
+            {SERVICES.map(service => (
+              <button key={service.id} onClick={() => handlePrint(service.id)} disabled={isGenerating} className={`w-full ${service.color} ${service.hover} text-white p-4 md:p-6 rounded-2xl shadow-md transition-all active:scale-95 flex items-center justify-between disabled:opacity-70 group`}>
+                <div className="flex items-center gap-4 md:gap-5 text-left flex-1">
+                  <div className="bg-white text-slate-800 w-14 h-14 md:w-16 md:h-16 rounded-2xl shrink-0 flex items-center justify-center shadow-lg border-b-4 border-black/20 group-active:border-b-0 group-active:translate-y-1 transition-all">
+                    <span className="text-3xl md:text-4xl font-black">{service.id}</span>
                   </div>
-                  <ChevronRight className="w-6 h-6 md:w-8 md:h-8 opacity-50 shrink-0" />
-                </button>
-              );
-            })}
+                  <div className="flex-1 pl-1">
+                    <h2 className="text-2xl md:text-3xl font-bold leading-tight mb-1">{service.nameZh}</h2>
+                    <h3 className="text-xs md:text-sm opacity-90 italic font-medium">{service.name}</h3>
+                  </div>
+                </div>
+                <ChevronRight className="w-6 h-6 md:w-8 md:h-8 opacity-50 shrink-0" />
+              </button>
+            ))}
           </div>
-          <div className="p-3 text-center border-t border-gray-100 flex items-center justify-center gap-4 bg-gray-50 shrink-0">
-             <label className="flex items-center gap-2 cursor-pointer text-gray-400 text-xs font-bold uppercase tracking-widest">
-                <input type="checkbox" checked={useTabletMode} onChange={(e) => setUseTabletMode(e.target.checked)} className="rounded" />
-                Tablet Mode / Native USB Print
-             </label>
-          </div>
+          
           {printedTicket && (
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
               <div className="bg-white p-8 rounded-3xl shadow-2xl w-full max-w-sm text-center border-t-8 border-blue-600 animate-in zoom-in-95 duration-200">
                 <h2 className="text-xl font-bold text-gray-800 mb-1">您的籌號 Your Ticket</h2>
                 <div className="text-7xl md:text-8xl font-black text-blue-600 my-4 tracking-tighter">{printedTicket.ticketNumber || printedTicket.id}</div>
-                {!useTabletMode && (
-                  <button onClick={handleManualPrint} className="mt-2 bg-blue-50 text-blue-700 font-bold py-4 px-6 rounded-full flex items-center justify-center gap-2 hover:bg-blue-100 transition-colors w-full border border-blue-200 mb-6 text-xl"><Printer className="w-6 h-6" /> 列印籌號 Print</button>
-                )}
+                <button onClick={handleManualPrint} className="mt-2 bg-blue-50 text-blue-700 font-bold py-4 px-6 rounded-full flex items-center justify-center gap-2 hover:bg-blue-100 transition-colors w-full border border-blue-200 mb-6 shadow-sm active:scale-95 text-xl"><Printer className="w-6 h-6" /> 列印籌號 Print</button>
                 <button onClick={() => setPrintedTicket(null)} className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold w-full py-4 rounded-xl transition-colors">關閉 Close</button>
               </div>
             </div>
@@ -338,24 +254,50 @@ const KioskView = ({ generateTicket }) => {
         </div>
       </div>
 
-      {printedTicket && !useTabletMode && (
-        <div className="hidden print:block text-black text-center w-full max-w-[80mm] mx-auto p-4 font-sans bg-white z-[9999] m-0">
+      {/* --- PRINTABLE TICKET (Exactly 8cm x 18cm format) --- */}
+      <style>
+        {`
+          @media print {
+            @page {
+              size: 80mm 180mm;
+              margin: 0;
+            }
+            body {
+              margin: 0;
+              padding: 0;
+              width: 80mm;
+              height: 180mm;
+            }
+          }
+        `}
+      </style>
+      
+      {printedTicket && (
+        <div className="hidden print:flex print:flex-col text-black text-center w-[80mm] h-[180mm] mx-auto p-4 font-sans bg-white z-[9999] m-0 box-border overflow-hidden">
           <div className="flex flex-col items-center mb-4 border-b-2 border-black pb-4 text-center">
-            <img src={LOGO_PATH} alt="Logo" className="w-11/12 max-w-[70mm] h-auto object-contain mb-4 mx-auto" onError={(e) => e.target.style.display='none'} />
+            <img src={LOGO_PATH} alt="Logo" className="w-[60mm] h-auto object-contain mb-4 mx-auto" onError={(e) => e.target.style.display='none'} />
             <h1 className="text-xl font-bold leading-tight">{PHARMACY_NAME_ZH}</h1>
             <h2 className="text-[10px] font-medium opacity-70 uppercase tracking-tighter mt-1">{PHARMACY_NAME}</h2>
           </div>
+          
           <div className="mb-4 text-center">
             <div className="text-2xl font-black">{printedTicket.serviceNameZh}</div>
             <div className="text-xs font-bold opacity-60 uppercase">{printedTicket.serviceName}</div>
           </div>
-          <div className="border-y-4 border-black py-6 my-4 text-center">
-            <div className="text-sm font-bold uppercase mb-1">您的籌號 YOUR TICKET NUMBER</div>
-            <div className="text-[6.5rem] font-black leading-none">{printedTicket.ticketNumber || printedTicket.id}</div>
+          
+          {/* Flex-1 pushes the footer to the bottom while centering the ticket number */}
+          <div className="border-y-4 border-black py-4 my-4 text-center flex-1 flex flex-col justify-center">
+            <div className="text-sm font-bold uppercase mb-2">您的籌號 YOUR TICKET NUMBER</div>
+            <div className="text-[6.5rem] font-black leading-none tracking-tighter">{printedTicket.ticketNumber || printedTicket.id}</div>
           </div>
-          <div className="text-sm font-bold text-center">{formatDate(printedTicket.createdAt)}</div>
-          <div className="text-sm mb-6 text-center">{formatTime(printedTicket.createdAt)}</div>
-          <div className="border-t border-dashed border-gray-500 pt-4 text-sm italic font-black text-center">請耐心等候叫號。<br/>Please wait for your number.</div>
+          
+          <div className="mt-auto">
+            <div className="text-sm font-bold text-center">{formatDate(printedTicket.createdAt)}</div>
+            <div className="text-sm mb-4 text-center">{formatTime(printedTicket.createdAt)}</div>
+            <div className="border-t border-dashed border-gray-500 pt-4 pb-2 text-sm italic font-black text-center">
+              請耐心等候叫號。<br/>Please wait for your number.
+            </div>
+          </div>
         </div>
       )}
     </>
@@ -365,6 +307,7 @@ const KioskView = ({ generateTicket }) => {
 const MonitorView = ({ tickets, waitingTickets, lastCallEvent, isStarted, onStart }) => {
   const currentTicket = tickets.find(t => t.id === lastCallEvent.id);
   const displayId = currentTicket ? (currentTicket.ticketNumber || currentTicket.id) : '---';
+
   const [flash, setFlash] = useState(false);
   
   const ticketsRef = useRef(tickets);
@@ -420,46 +363,50 @@ const MonitorView = ({ tickets, waitingTickets, lastCallEvent, isStarted, onStar
 
   return (
     <div className="min-h-[calc(100vh-64px)] bg-slate-900 text-white flex flex-col overflow-hidden print:hidden">
-      <div className="w-full bg-slate-800 border-b-4 border-slate-700 p-6 md:p-8 flex flex-col md:flex-row items-center justify-between gap-8 shrink-0 z-20 shadow-2xl">
-         <div className="flex items-center gap-6 md:gap-10">
-            <div className="bg-white rounded-3xl p-3 md:p-4 shadow-inner ring-4 ring-slate-700/50 shrink-0">
-               <img src={LOGO_PATH} alt="Logo" className="h-16 md:h-24 lg:h-32 object-contain mx-auto" onError={(e) => e.target.style.display='none'} />
+      <div className="w-full bg-slate-800/80 border-b border-slate-700 p-4 md:p-6 flex flex-col md:flex-row items-center justify-between gap-6 shrink-0 z-20 shadow-xl">
+         <div className="flex items-center gap-4 md:gap-6">
+            <div className="bg-white rounded-xl md:rounded-2xl p-1.5 md:p-2 shadow-inner">
+               <img src={LOGO_PATH} alt="Logo" className="h-12 md:h-16 lg:h-20 object-contain" onError={(e) => e.target.style.display='none'} />
             </div>
             <div className="flex flex-col text-left">
-               <h2 className="text-3xl md:text-5xl lg:text-6xl font-black text-slate-100 tracking-tight leading-none mb-2">{PHARMACY_NAME_ZH}</h2>
-               <h3 className="text-xs md:text-sm lg:text-base font-bold text-slate-400 uppercase tracking-[0.2em] opacity-80">{PHARMACY_NAME}</h3>
+               <h2 className="text-xl md:text-2xl lg:text-3xl font-bold text-slate-100 tracking-wide">{PHARMACY_NAME_ZH}</h2>
+               <h3 className="text-[10px] md:text-xs lg:text-sm font-medium text-slate-400 uppercase tracking-widest mt-0.5 opacity-80">{PHARMACY_NAME}</h3>
             </div>
          </div>
-         <div className="flex flex-col items-center md:items-end shrink-0">
-            <h1 className="text-5xl md:text-7xl font-black text-yellow-500 tracking-[0.2em] uppercase mb-1 drop-shadow-lg text-center">現在叫號</h1>
-            <p className="text-slate-500 text-sm md:text-xl font-black tracking-[0.3em] uppercase opacity-40 text-center">Now Calling</p>
+         <div className="hidden lg:flex items-center gap-3">
+            <Activity className="w-8 h-8 text-blue-500 animate-pulse" />
          </div>
       </div>
+
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden relative">
-        <div className="w-full lg:w-2/3 p-8 flex flex-col justify-center items-center border-b lg:border-b-0 lg:border-r-4 border-slate-700/50">
-          <div className={`transition-all duration-300 text-center ${flash ? 'scale-110 text-white drop-shadow-[0_0_80px_rgba(255,255,255,0.6)]' : 'text-white'}`}>
-            <div className="text-[14rem] md:text-[22rem] lg:text-[28rem] font-black leading-none my-4 tracking-tighter drop-shadow-2xl">{displayId}</div>
+        <div className="w-full lg:w-2/3 p-6 md:p-12 flex flex-col justify-center items-center border-b lg:border-b-0 lg:border-r border-slate-700 relative">
+          <div className="mb-4 md:mb-8 text-center">
+            <h1 className="text-4xl md:text-6xl lg:text-7xl font-black text-yellow-500 tracking-widest uppercase drop-shadow-md">現在叫號</h1>
+            <p className="text-slate-400 text-lg md:text-2xl font-bold tracking-[0.3em] uppercase mt-2 opacity-80">Now Calling</p>
           </div>
-          {currentTicket && currentTicket.calledByCounter && currentTicket.status === 'calling' && (
-            <div className="text-center animate-in fade-in slide-in-from-bottom-8 mt-10">
-              <div className="inline-block bg-yellow-500 text-slate-900 px-16 py-5 md:px-24 md:py-8 rounded-full text-4xl md:text-7xl font-black shadow-[0_0_60px_rgba(234,179,8,0.4)] border-4 border-white/20">
+          <div className={`transition-all duration-300 text-center ${flash ? 'scale-110 text-white drop-shadow-[0_0_60px_rgba(255,255,255,0.4)]' : 'text-white'}`}>
+            <div className="text-[10rem] md:text-[18rem] lg:text-[24rem] font-black leading-none my-2 tracking-tighter">{displayId}</div>
+          </div>
+          {currentTicket && currentTicket.calledByCounter && (
+            <div className="text-center animate-in fade-in slide-in-from-bottom-4 mt-6 md:mt-10">
+              <div className="inline-block bg-yellow-500 text-slate-900 px-10 py-3 md:px-16 md:py-5 rounded-full text-3xl md:text-5xl lg:text-6xl font-black shadow-[0_0_50px_rgba(234,179,8,0.3)]">
                 {currentTicket.calledByCounter.replace('Counter', '').replace('Room', '')} 號 {currentTicket.calledByCounter.includes('Counter') ? '櫃位' : '房間'}
               </div>
             </div>
           )}
         </div>
-        <div className="w-full lg:w-1/3 bg-slate-800/40 p-8 md:p-12 flex flex-col">
-          <h2 className="text-4xl font-black text-slate-300 mb-10 border-b-4 border-slate-700 pb-8 flex items-end gap-5">
-            準備叫號 <span className="text-xl md:text-2xl opacity-40 font-black pb-1 tracking-widest uppercase">Next</span>
+        <div className="w-full lg:w-1/3 bg-slate-800/30 p-6 md:p-10 flex flex-col">
+          <h2 className="text-3xl md:text-4xl font-bold text-slate-300 mb-6 md:mb-8 border-b-2 border-slate-700 pb-4 md:pb-6 flex items-end gap-3 md:gap-4">
+            準備叫號 <span className="text-xl md:text-2xl opacity-60 font-medium pb-1">Next in Line</span>
           </h2>
-          <div className="space-y-6 overflow-y-auto flex-1 pr-2">
-            {[...waitingTickets].sort((a,b) => new Date(a.createdAt) - new Date(b.createdAt)).slice(0, 5).map((ticket) => (
-              <div key={ticket.id} className="flex justify-between items-center bg-slate-700/40 p-8 md:p-10 rounded-[2.5rem] border-2 border-slate-600/30 shadow-2xl">
-                <span className="text-6xl md:text-8xl font-black text-slate-100 tracking-tighter">{ticket.ticketNumber || ticket.id}</span>
-                <span className="text-slate-400 text-2xl md:text-4xl font-bold truncate pl-8 text-right opacity-80">{ticket.serviceNameZh}</span>
+          <div className="space-y-4 md:space-y-6 overflow-y-auto flex-1 pr-2">
+            {[...waitingTickets].sort((a,b) => new Date(a.createdAt) - new Date(b.createdAt)).slice(0, 6).map((ticket) => (
+              <div key={ticket.id} className="flex justify-between items-center bg-slate-700/50 p-5 md:p-8 rounded-2xl border border-slate-600/50 shadow-lg">
+                <span className="text-5xl md:text-7xl font-black text-slate-100">{ticket.ticketNumber || ticket.id}</span>
+                <span className="text-slate-400 text-xl md:text-3xl font-bold truncate pl-4 md:pl-6 text-right">{ticket.serviceNameZh}</span>
               </div>
             ))}
-            {waitingTickets.length === 0 && <div className="text-center text-slate-600 mt-24 text-2xl font-black opacity-30 uppercase tracking-[0.2em]">暫無籌號 No Waiting</div>}
+            {waitingTickets.length === 0 && <div className="text-center text-slate-500 mt-16 md:mt-20 text-xl md:text-2xl font-bold">暫無等待中籌號<br/><span className="text-base md:text-lg opacity-50 block mt-2">No tickets waiting</span></div>}
           </div>
         </div>
       </div>
@@ -544,7 +491,6 @@ const PanelView = ({
                     <div className="flex flex-wrap sm:flex-nowrap gap-2 w-full xl:w-auto mt-2 xl:mt-0">
                       <button onClick={() => setMemoModal({ id: ticket.id, displayId: displayId, text: ticket.memo || '' })} className="hidden xl:flex p-3 bg-white rounded-lg border border-gray-200 text-gray-500 hover:text-blue-600 hover:bg-blue-50 transition-colors shadow-sm" title="Add Memo"><Edit3 className="w-5 h-5" /></button>
                       <button onClick={() => setReturnModal({ id: ticket.id, displayId: displayId })} className="hidden xl:flex p-3 bg-white rounded-lg border border-gray-200 text-orange-500 hover:text-white hover:bg-orange-500 transition-colors shadow-sm" title="Return to Queue"><RotateCcw className="w-5 h-5" /></button>
-                      
                       {ticket.status === 'calling' ? (
                         <>
                           <button onClick={()=>updateTicketStatus(ticket.id, 'calling', panelRoom)} className="p-3 bg-white border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 flex-1 sm:flex-none shadow-sm" title="Recall (Ring Bell)"><BellRing className="w-5 h-5 mx-auto" /></button>
@@ -568,19 +514,26 @@ const PanelView = ({
           </button>
           {isHistoryExpanded && (
             <div className="p-4 border-t border-gray-200 max-h-80 overflow-y-auto space-y-2 bg-white">
-              {completedTickets.sort((a, b) => new Date(b.completedAt || 0) - new Date(a.completedAt || 0)).slice(0, 50).map(t => (
-                <div key={t.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-100 gap-2 sm:gap-4 text-left">
-                  <div className="flex items-center gap-3 shrink-0">
-                    <span className={`text-xl font-black ${t.status === 'completed' ? 'text-green-600' : t.status === 'missed' ? 'text-orange-500' : 'text-red-500'}`}>{t.ticketNumber || t.id}</span>
-                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider border ${t.status === 'completed' ? 'bg-green-100 text-green-700 border-green-200' : t.status === 'missed' ? 'bg-orange-100 text-orange-700 border-orange-200' : 'bg-red-100 text-red-700 border-red-200'}`}>{t.status}</span>
-                  </div>
-                  <div className="flex-1 min-w-0 text-sm text-gray-600 flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4">
-                    {t.calledByCounter && <span className="font-bold text-gray-800 whitespace-nowrap"><UserCheck className="w-3 h-3 inline mr-1 text-gray-400"/>{t.calledByCounter}</span>}
-                    {t.memo && <span className="text-gray-500 truncate" title={t.memo}><FileEdit className="w-3 h-3 inline mr-1"/>{t.memo}</span>}
-                  </div>
-                  <div className="text-xs text-gray-400 whitespace-nowrap font-medium flex items-center gap-1 shrink-0"><Clock className="w-3 h-3"/> {formatTime(t.completedAt)}</div>
-                </div>
-              ))}
+              {completedTickets.length === 0 ? (
+                <div className="text-center text-gray-400 py-4 italic">暫無記錄 No recent tickets.</div>
+              ) : (
+                [...completedTickets]
+                  .sort((a, b) => new Date(b.completedAt || 0) - new Date(a.completedAt || 0))
+                  .slice(0, 50)
+                  .map(t => (
+                    <div key={t.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-100 gap-2 sm:gap-4 text-left">
+                      <div className="flex items-center gap-3 shrink-0">
+                        <span className={`text-xl font-black ${t.status === 'completed' ? 'text-green-600' : t.status === 'missed' ? 'text-orange-500' : 'text-red-500'}`}>{t.ticketNumber || t.id}</span>
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider border ${t.status === 'completed' ? 'bg-green-100 text-green-700 border-green-200' : t.status === 'missed' ? 'bg-orange-100 text-orange-700 border-orange-200' : 'bg-red-100 text-red-700 border-red-200'}`}>{t.status}</span>
+                      </div>
+                      <div className="flex-1 min-w-0 text-sm text-gray-600 flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4">
+                        {t.calledByCounter && <span className="font-bold text-gray-800 whitespace-nowrap"><UserCheck className="w-3 h-3 inline mr-1 text-gray-400"/>{t.calledByCounter}</span>}
+                        {t.memo && <span className="text-gray-500 truncate" title={t.memo}><FileEdit className="w-3 h-3 inline mr-1"/>{t.memo}</span>}
+                      </div>
+                      <div className="text-xs text-gray-400 whitespace-nowrap font-medium flex items-center gap-1 shrink-0"><Clock className="w-3 h-3"/> {formatTime(t.completedAt)}</div>
+                    </div>
+                  ))
+              )}
             </div>
           )}
         </div>
@@ -608,7 +561,7 @@ const PanelView = ({
                       {isOvertime && <AlertTriangle className="w-5 h-5 text-red-600 animate-pulse" title="已等待超過10分鐘" />}
                       {t.isReturned && <span className="bg-orange-100 text-orange-700 text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider border border-orange-200">返回隊列</span>}
                     </div>
-                    <div className={`text-xs font-medium mt-1 w-max px-2 py-0.5 rounded-full ${isOvertime ? 'bg-red-200 text-red-800' : 'bg-gray-100 text-gray-600'}`}>已等待: {waitTime} 分鐘</div>
+                    <div className={`text-xs font-bold mt-1 w-max px-2 py-0.5 rounded-full ${isOvertime ? 'bg-red-200 text-red-800' : 'bg-gray-100 text-gray-600'}`}>已等待: {waitTime} 分鐘</div>
                     {t.memo && <div className={`text-xs mt-2 p-1.5 rounded border flex items-start gap-1 truncate shadow-sm ${isOvertime ? 'bg-white border-red-200 text-red-700' : 'bg-blue-50 border-blue-100 text-blue-700'}`} title={t.memo}><FileEdit className="w-3 h-3 shrink-0 mt-0.5"/> <span className="truncate font-bold">{t.memo}</span></div>}
                   </div>
                   <div className="flex gap-2 shrink-0 items-center">
@@ -657,7 +610,6 @@ const ReportsView = ({ tickets }) => {
         serviceCounts[t.type] = (serviceCounts[t.type] || 0) + 1;
       }
       
-      const created = new Date(t.createdAt).getTime();
       const hour = new Date(t.createdAt).getHours();
       if (hourCounts[hour] !== undefined) hourCounts[hour]++;
 
@@ -668,10 +620,13 @@ const ReportsView = ({ tickets }) => {
       if (t.status === 'completed') {
         completedCount++;
         if (t.calledByCounter) counterCounts[t.calledByCounter] = (counterCounts[t.calledByCounter] || 0) + 1;
+
+        const cAt = new Date(t.createdAt).getTime();
         const called = t.calledAt ? new Date(t.calledAt).getTime() : null;
         const completed = t.completedAt ? new Date(t.completedAt).getTime() : null;
-        if (called) waitTimes.push(called - created);
-        if (completed) turnaroundTimes.push(completed - created);
+
+        if (called) waitTimes.push(called - cAt);
+        if (completed) turnaroundTimes.push(completed - cAt);
       }
     });
 
@@ -701,10 +656,17 @@ const ReportsView = ({ tickets }) => {
           <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2"><BarChart3 className="w-6 h-6 text-blue-600"/> 數據分析 Dashboard</h1>
           <div className="flex bg-gray-100 p-1 rounded-lg self-stretch sm:self-auto">
             {['today', 'week', 'month', 'all'].map(tf => (
-              <button key={tf} onClick={() => setTimeframe(tf)} className={`flex-1 sm:flex-none px-4 py-2 text-sm font-bold rounded-md capitalize transition-all ${timeframe === tf ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}>{tf === 'all' ? '所有記錄' : tf === 'today' ? '今日' : tf === 'week' ? '本週' : '本月'}</button>
+              <button 
+                key={tf} 
+                onClick={() => setTimeframe(tf)} 
+                className={`flex-1 sm:flex-none px-4 py-2 text-sm font-bold rounded-md capitalize transition-all ${timeframe === tf ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+              >
+                {tf === 'all' ? '所有記錄' : tf === 'today' ? '今日' : tf === 'week' ? '本週' : '本月'}
+              </button>
             ))}
           </div>
         </div>
+
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm flex flex-col justify-center">
             <div className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-1 flex items-center gap-2"><Ticket className="w-4 h-4"/> 總籌號量 Total</div>
@@ -730,6 +692,7 @@ const ReportsView = ({ tickets }) => {
             <div className="w-full bg-gray-100 rounded-full h-2 mt-3 overflow-hidden"><div className="bg-emerald-500 h-2 rounded-full" style={{width: `${stats.totalGenerated ? (stats.completed / stats.totalGenerated) * 100 : 0}%`}}></div></div>
           </div>
         </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
             <h3 className="text-lg font-bold text-gray-800 mb-6 flex items-center gap-2"><Info className="w-5 h-5 text-gray-400"/> 服務類別分佈</h3>
@@ -751,6 +714,7 @@ const ReportsView = ({ tickets }) => {
               })}
             </div>
           </div>
+
           <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
             <h3 className="text-lg font-bold text-gray-800 mb-6 flex items-center gap-2"><UserCheck className="w-5 h-5 text-gray-400"/> 各櫃位工作量</h3>
             <div className="space-y-4">
@@ -770,6 +734,7 @@ const ReportsView = ({ tickets }) => {
             </div>
           </div>
         </div>
+
         <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
           <h3 className="text-lg font-bold text-gray-800 mb-6 flex items-center gap-2"><Calendar className="w-5 h-5 text-gray-400"/> 高峰時段分析 (取籌量)</h3>
           <div className="h-48 flex items-end gap-2 md:gap-4 mt-8 pb-6 border-b border-gray-100">
@@ -781,7 +746,10 @@ const ReportsView = ({ tickets }) => {
                   <div className="opacity-0 group-hover:opacity-100 absolute -top-8 bg-gray-800 text-white text-xs font-bold px-2 py-1 rounded transition-opacity">
                     {count} 籌
                   </div>
-                  <div className="w-full bg-blue-500 hover:bg-blue-400 rounded-t-md transition-all duration-1000" style={{height: `${height}%`, minHeight: count > 0 ? '4px' : '0'}}></div>
+                  <div 
+                    className="w-full bg-blue-500 hover:bg-blue-400 rounded-t-md transition-all duration-1000" 
+                    style={{height: `${height}%`, minHeight: count > 0 ? '4px' : '0'}}
+                  ></div>
                   <div className="absolute -bottom-6 text-[10px] sm:text-xs font-medium text-gray-400 -rotate-45 sm:rotate-0 origin-top-left sm:origin-center mt-2 whitespace-nowrap">
                     {timeLabel}
                   </div>
@@ -790,6 +758,7 @@ const ReportsView = ({ tickets }) => {
             })}
           </div>
         </div>
+
       </div>
     </div>
   );
@@ -814,29 +783,44 @@ export default function App() {
   const [currentTime, setCurrentTime] = useState(new Date());
 
   useEffect(() => {
-    signInAnonymously(auth).catch(err => console.error("Auth error:", err));
+    signInAnonymously(auth).catch(err => {
+      console.error("Auth error:", err);
+    });
     const unsubscribe = onAuthStateChanged(auth, setUser);
     return () => unsubscribe();
   }, []);
 
   useEffect(() => {
     if (!user) return;
+
     const ticketsRef = collection(db, 'artifacts', appId, 'public', 'data', 'tickets');
     const unsubTickets = onSnapshot(ticketsRef, (snapshot) => {
-      const loadedTickets = []; snapshot.forEach(doc => loadedTickets.push(doc.data()));
+      const loadedTickets = [];
+      snapshot.forEach(doc => loadedTickets.push(doc.data()));
       setTickets(loadedTickets);
     });
+
     const countersRef = collection(db, 'artifacts', appId, 'public', 'data', 'counters');
     const unsubCounters = onSnapshot(countersRef, (snapshot) => {
       const loadedCounters = { A: 0, B: 0, C: 0, D: 0, E: 0, F: 0 };
-      snapshot.forEach(doc => { loadedCounters[doc.id] = doc.data().count; });
+      snapshot.forEach(doc => {
+        loadedCounters[doc.id] = doc.data().count;
+      });
       setCounters(loadedCounters);
     });
+
     const displayRef = doc(db, 'artifacts', appId, 'public', 'data', 'system', 'display');
     const unsubDisplay = onSnapshot(displayRef, (snapshot) => {
-      if (snapshot.exists()) setLastCallEvent(snapshot.data());
+      if (snapshot.exists()) {
+        setLastCallEvent(snapshot.data());
+      }
     });
-    return () => { unsubTickets(); unsubCounters(); unsubDisplay(); };
+
+    return () => {
+      unsubTickets();
+      unsubCounters();
+      unsubDisplay();
+    };
   }, [user]);
 
   useEffect(() => {
@@ -844,43 +828,82 @@ export default function App() {
     return () => clearInterval(timer);
   }, []);
 
-  // Daily Reset Logic
   useEffect(() => {
     if (!user || tickets.length === 0) return;
+    
     const todayStr = currentTime.toDateString();
-    const staleTickets = tickets.filter(t => ['waiting', 'calling', 'arrived'].includes(t.status) && new Date(t.createdAt).toDateString() !== todayStr);
+    
+    const staleTickets = tickets.filter(t => 
+      ['waiting', 'calling', 'arrived'].includes(t.status) && 
+      new Date(t.createdAt).toDateString() !== todayStr
+    );
+    
     if (staleTickets.length > 0) {
       staleTickets.forEach(async (t) => {
         const ticketRef = doc(db, 'artifacts', appId, 'public', 'data', 'tickets', t.id);
-        const finalMemo = t.memo ? `${t.memo} | [System] Auto-cleared` : `[System] Auto-cleared`;
+        const finalMemo = t.memo ? `${t.memo} | [System] Auto-cleared daily reset` : `[System] Auto-cleared daily reset`;
         await setDoc(ticketRef, { ...t, status: 'cancelled', completedAt: new Date().toISOString(), memo: finalMemo });
       });
-      SERVICES.forEach(async (s) => {
-        const counterRef = doc(db, 'artifacts', appId, 'public', 'data', 'counters', s.id);
-        await setDoc(counterRef, { count: 0 });
-      });
     }
-  }, [currentTime, user, tickets]);
+
+    const latestTicket = [...tickets].sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt))[0];
+    if (latestTicket && new Date(latestTicket.createdAt).toDateString() !== todayStr) {
+      let needsReset = false;
+      SERVICES.forEach(s => { if (counters[s.id] > 0) needsReset = true; });
+      
+      if (needsReset) {
+        SERVICES.forEach(async (s) => {
+           if (counters[s.id] > 0) {
+             const counterRef = doc(db, 'artifacts', appId, 'public', 'data', 'counters', s.id);
+             await setDoc(counterRef, { count: 0 });
+           }
+        });
+      }
+    }
+  }, [currentTime, user]);
+
+  const waitingTickets = tickets.filter(t => t.status === 'waiting');
+  const activeTickets = tickets.filter(t => ['calling', 'arrived'].includes(t.status));
+  const completedTickets = tickets.filter(t => ['completed', 'missed', 'cancelled'].includes(t.status));
 
   const generateTicket = async (serviceId) => {
     if (!user) {
-      alert("Database connection is not ready. Please wait a moment or refresh the page.");
+      alert("資料庫連線尚未就緒，請稍候。 Database connection not ready.");
       return null;
     }
+    
     try {
       const service = SERVICES.find(s => s.id === serviceId);
       const newNum = (counters[serviceId] || 0) + 1;
+      
       const counterRef = doc(db, 'artifacts', appId, 'public', 'data', 'counters', serviceId);
       await setDoc(counterRef, { count: newNum });
+      
       const ticketNumber = `${serviceId}${newNum.toString().padStart(3, '0')}`;
       const docId = `ticket_${Date.now()}`;
-      const newTicket = { id: docId, ticketNumber, type: serviceId, serviceName: service.name, serviceNameZh: service.nameZh, status: 'waiting', createdAt: new Date().toISOString(), calledAt: null, arrivedAt: null, completedAt: null, calledByCounter: null, memo: '', isReturned: false };
+      
+      const newTicket = {
+        id: docId,
+        ticketNumber: ticketNumber,
+        type: serviceId,
+        serviceName: service.name,
+        serviceNameZh: service.nameZh,
+        status: 'waiting', 
+        createdAt: new Date().toISOString(),
+        calledAt: null,
+        arrivedAt: null,
+        completedAt: null,
+        calledByCounter: null,
+        memo: '',
+        isReturned: false
+      };
+      
       const ticketRef = doc(db, 'artifacts', appId, 'public', 'data', 'tickets', docId);
       await setDoc(ticketRef, newTicket);
       return newTicket;
     } catch (error) {
       console.error("Firebase write error:", error);
-      alert("Error generating ticket! Please check your Firebase connection or database rules.");
+      alert(error.message || "產生籌號出錯！ Error generating ticket!");
       return null;
     }
   };
@@ -889,13 +912,20 @@ export default function App() {
     if (!user) return;
     const t = tickets.find(t => t.id === ticketId);
     if (!t) return;
+
     const timestamp = new Date().toISOString();
     const updated = { ...t, status: newStatus };
-    if (newStatus === 'calling') { if (!t.calledAt) updated.calledAt = timestamp; if (counterName) updated.calledByCounter = counterName; }
+    
+    if (newStatus === 'calling') {
+      if (!t.calledAt) updated.calledAt = timestamp; 
+      if (counterName) updated.calledByCounter = counterName;
+    }
     if (newStatus === 'arrived') updated.arrivedAt = timestamp;
     if (newStatus === 'completed' || newStatus === 'missed') updated.completedAt = timestamp;
+
     const ticketRef = doc(db, 'artifacts', appId, 'public', 'data', 'tickets', ticketId);
     await setDoc(ticketRef, updated);
+
     if (newStatus === 'calling') {
       const displayRef = doc(db, 'artifacts', appId, 'public', 'data', 'system', 'display');
       await setDoc(displayRef, { id: ticketId, time: Date.now(), counter: counterName || updated.calledByCounter });
@@ -906,6 +936,7 @@ export default function App() {
     if (!user) return;
     const t = tickets.find(t => t.id === ticketId);
     if (!t) return;
+
     const updated = { ...t, memo: memoText };
     const ticketRef = doc(db, 'artifacts', appId, 'public', 'data', 'tickets', ticketId);
     await setDoc(ticketRef, updated);
@@ -916,10 +947,19 @@ export default function App() {
     if (!user) return;
     const t = tickets.find(t => t.id === ticketId);
     if (!t) return;
-    const prefix = "[Returned]";
+
+    const prefix = "[返回隊列]";
     const newMemoNote = reason ? `${prefix} ${reason}` : prefix;
     const finalMemo = t.memo ? `${t.memo} | ${newMemoNote}` : newMemoNote;
-    const updated = { ...t, status: 'waiting', calledByCounter: null, memo: finalMemo, isReturned: true };
+
+    const updated = { 
+      ...t, 
+      status: 'waiting', 
+      calledByCounter: null,
+      memo: finalMemo,
+      isReturned: true
+    };
+
     const ticketRef = doc(db, 'artifacts', appId, 'public', 'data', 'tickets', ticketId);
     await setDoc(ticketRef, updated);
     setReturnModal(null);
@@ -929,18 +969,22 @@ export default function App() {
     if (!user) return;
     const t = tickets.find(t => t.id === ticketId);
     if (!t) return;
-    const prefix = "[Cancelled]";
+
+    const prefix = "[已取消]";
     const newMemoNote = reason ? `${prefix} ${reason}` : prefix;
     const finalMemo = t.memo ? `${t.memo} | ${newMemoNote}` : newMemoNote;
-    const updated = { ...t, status: 'cancelled', completedAt: new Date().toISOString(), memo: finalMemo };
+
+    const updated = { 
+      ...t, 
+      status: 'cancelled', 
+      completedAt: new Date().toISOString(), 
+      memo: finalMemo
+    };
+
     const ticketRef = doc(db, 'artifacts', appId, 'public', 'data', 'tickets', ticketId);
     await setDoc(ticketRef, updated);
     setDeleteModal(null);
   };
-
-  const waitingTickets = tickets.filter(t => t.status === 'waiting');
-  const activeTickets = tickets.filter(t => ['calling', 'arrived'].includes(t.status));
-  const completedTickets = tickets.filter(t => ['completed', 'missed', 'cancelled'].includes(t.status));
 
   return (
     <div className="min-h-screen font-sans bg-gray-50 print:bg-white overflow-x-hidden">
@@ -948,30 +992,62 @@ export default function App() {
         <div className="flex items-center gap-2 md:gap-3 cursor-pointer" onClick={() => setCurrentView('home')}>
           <img src={LOGO_PATH} alt="Logo" className="h-10 md:h-12 w-auto object-contain drop-shadow-sm" onError={(e) => e.target.style.display='none'} />
           <div className="bg-teal-600 p-1.5 md:p-2 rounded-lg hidden sm:block"><Ticket className="w-5 h-5 text-white" /></div>
-          <span className="font-bold text-lg md:text-xl text-gray-800 truncate tracking-tight">SJS Queue</span>
+          <span className="font-bold text-lg md:text-xl text-gray-800 truncate tracking-tight">SJS 排隊系統 Queue <span className="text-xs text-gray-400 font-normal ml-2">v1.3.0</span></span>
         </div>
-        <button className="md:hidden p-2 text-gray-600" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}><Menu className="w-6 h-6" /></button>
+
+        <button className="md:hidden p-2 text-gray-600" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
+          <Menu className="w-6 h-6" />
+        </button>
+
         <div className="hidden md:flex items-center bg-gray-100 p-1 rounded-lg gap-1">
           {['home', 'kiosk', 'monitor', 'panel', 'reports'].map(v => (
-            <button key={v} onClick={() => { if(['panel', 'reports'].includes(v) && !isStaffAuthenticated) setCurrentView('login'); else setCurrentView(v); }} className={`px-4 py-2 text-sm font-medium rounded-md transition-all ${currentView === v ? 'bg-white shadow text-blue-600' : 'text-gray-600 hover:bg-gray-200'}`}>{v.charAt(0).toUpperCase() + v.slice(1)}</button>
+            <button key={v} onClick={() => { if(['panel', 'reports'].includes(v) && !isStaffAuthenticated) setCurrentView('login'); else setCurrentView(v); }} className={`px-4 py-2 text-sm font-bold rounded-md transition-all ${currentView === v ? 'bg-white shadow text-blue-600' : 'text-gray-600 hover:bg-gray-200'}`}>{v === 'home' ? '首頁' : v === 'kiosk' ? '取籌機' : v === 'monitor' ? '叫號螢幕' : v === 'panel' ? '藥劑師' : '數據'}</button>
           ))}
         </div>
+
         {isMobileMenuOpen && (
           <div className="absolute top-16 left-0 right-0 bg-white border-b shadow-lg flex flex-col md:hidden py-2 px-4 space-y-2">
             {['home', 'kiosk', 'monitor', 'panel', 'reports'].map(v => (
-              <button key={v} onClick={() => { setIsMobileMenuOpen(false); if(['panel', 'reports'].includes(v) && !isStaffAuthenticated) setCurrentView('login'); else setCurrentView(v); }} className={`px-4 py-3 text-left text-base font-bold rounded-lg ${currentView === v ? 'bg-blue-50 text-blue-600' : 'text-gray-700 hover:bg-gray-100'}`}>{v.charAt(0).toUpperCase() + v.slice(1)}</button>
+              <button 
+                key={v} 
+                onClick={() => { 
+                  setIsMobileMenuOpen(false);
+                  if(['panel', 'reports'].includes(v) && !isStaffAuthenticated) setCurrentView('login'); 
+                  else setCurrentView(v); 
+                }} 
+                className={`px-4 py-3 text-left text-base font-bold rounded-lg ${currentView === v ? 'bg-blue-50 text-blue-600' : 'text-gray-700 hover:bg-gray-100'}`}
+              >
+                {v === 'home' ? '首頁 Home' : v === 'kiosk' ? '取籌機 Kiosk' : v === 'monitor' ? '叫號螢幕 Monitor' : v === 'panel' ? '藥劑師控制台 Panel' : '分析數據 Reports'}
+              </button>
             ))}
           </div>
         )}
       </nav>
+      
       <main>
         {currentView === 'home' && <HomeView setCurrentView={setCurrentView} isStaffAuthenticated={isStaffAuthenticated} />}
         {currentView === 'login' && <LoginView setCurrentView={setCurrentView} setIsStaffAuthenticated={setIsStaffAuthenticated} />}
         {currentView === 'kiosk' && <KioskView generateTicket={generateTicket} />}
-        {currentView === 'monitor' && <MonitorView tickets={tickets} waitingTickets={waitingTickets} lastCallEvent={lastCallEvent} isStarted={isMonitorStarted} onStart={() => setIsMonitorStarted(true)} currentTime={currentTime} />}
-        {currentView === 'panel' && <PanelView panelRoom={panelRoom} setPanelRoom={setPanelRoom} waitingTickets={waitingTickets} activeTickets={activeTickets} completedTickets={completedTickets} queueSortBy={queueSortBy} setQueueSortBy={setQueueSortBy} updateTicketStatus={updateTicketStatus} setMemoModal={setMemoModal} setReturnModal={setReturnModal} setDeleteModal={setDeleteModal} currentTime={currentTime} setIsStaffAuthenticated={setIsStaffAuthenticated} setCurrentView={setCurrentView} />}
+        {currentView === 'monitor' && <MonitorView tickets={tickets} waitingTickets={waitingTickets.filter(t => new Date(t.createdAt).toDateString() === currentTime.toDateString())} lastCallEvent={lastCallEvent} isStarted={isMonitorStarted} onStart={() => setIsMonitorStarted(true)} currentTime={currentTime} />}
+        {currentView === 'panel' && <PanelView 
+          panelRoom={panelRoom} 
+          setPanelRoom={setPanelRoom} 
+          waitingTickets={waitingTickets.filter(t => new Date(t.createdAt).toDateString() === currentTime.toDateString())} 
+          activeTickets={activeTickets.filter(t => new Date(t.createdAt).toDateString() === currentTime.toDateString())} 
+          completedTickets={completedTickets.filter(t => new Date(t.createdAt).toDateString() === currentTime.toDateString())}
+          queueSortBy={queueSortBy} 
+          setQueueSortBy={setQueueSortBy} 
+          updateTicketStatus={updateTicketStatus} 
+          setMemoModal={setMemoModal} 
+          setReturnModal={setReturnModal} 
+          setDeleteModal={setDeleteModal} 
+          currentTime={currentTime} 
+          setIsStaffAuthenticated={setIsStaffAuthenticated} 
+          setCurrentView={setCurrentView} 
+        />}
         {currentView === 'reports' && <ReportsView tickets={tickets} />}
       </main>
+      
       {memoModal && <MemoDialog memoModal={memoModal} onClose={() => setMemoModal(null)} onSave={updateTicketMemo} />}
       {returnModal && <ReturnDialog returnModal={returnModal} onClose={() => setReturnModal(null)} onConfirm={handleReturnTicket} />}
       {deleteModal && <DeleteDialog deleteModal={deleteModal} onClose={() => setDeleteModal(null)} onConfirm={handleDeleteTicket} />}

@@ -118,7 +118,8 @@ const DeleteDialog = ({ deleteModal, onClose, onConfirm }) => {
             </label>
           ))}
         </div>
-        {selectedReason.includes("Other") && <textarea className="w-full border border-gray-200 rounded-lg p-3 min-h-[80px] mb-4 outline-none focus:ring-2 focus:ring-red-500 text-lg font-bold" placeholder="請註明原因..." value={customReason} onChange={(e) => setCustomReason(e.target.value)} autoFocus />}
+        {selectedReason.includes("Other") && <textarea className="w-full border border-gray-200 rounded-lg p-3 min-h-[80px] mb-4 outline-none focus:ring-2 focus:ring-red-500 text-lg font-bold" placeholder="請註明原因..." value={customReason} onChange={(e) => setCustomReason(e.target.value)} autoFocus />
+        }
         <div className="flex justify-end gap-3">
           <button onClick={onClose} className="px-5 py-2 text-gray-500 font-bold">取消</button>
           <button onClick={handleConfirm} className="px-8 py-2 bg-red-600 text-white rounded-lg font-bold">確認取消</button>
@@ -181,7 +182,6 @@ export default function App() {
     return () => clearInterval(timer);
   }, []);
 
-  // Daily Reset Logic
   useEffect(() => {
     if (!user || tickets.length === 0) return;
     const todayStr = currentTime.toDateString();
@@ -227,7 +227,6 @@ export default function App() {
     const ticketRef = doc(db, 'artifacts', appId, 'public', 'data', 'tickets', ticketId);
     await setDoc(ticketRef, updated);
     
-    // Only dispatch a new voice call event if the status is strictly 'calling'
     if (newStatus === 'calling') {
       const displayRef = doc(db, 'artifacts', appId, 'public', 'data', 'system', 'display');
       await setDoc(displayRef, { id: ticketId, time: Date.now(), counter: counterName || updated.calledByCounter });
@@ -304,7 +303,7 @@ export default function App() {
   );
 }
 
-// --- EXTRACTED VIEWS (To prevent re-mounting) ---
+// --- EXTRACTED VIEWS ---
 
 const HomeView = ({ setCurrentView, isStaffAuthenticated }) => (
   <div className="flex flex-col items-center justify-center min-h-[calc(100vh-64px)] bg-gray-50 p-4 md:p-8 print:hidden">
@@ -364,10 +363,12 @@ const LoginView = ({ setCurrentView, setIsStaffAuthenticated }) => {
   );
 };
 
+// --- UPDATED KIOSK VIEW WITH NATIVE STAR USB PRINTING ---
 const KioskView = ({ generateTicket }) => {
+  // SET AUTO-PRINT CHECKBOX TO TRUE BY DEFAULT
+  const [useAndroidUSB, setUseAndroidUSB] = useState(true);
   const [printedTicket, setPrintedTicket] = useState(null);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [useAndroidUSB, setUseAndroidUSB] = useState(false);
   const printLock = useRef(false);
 
   useEffect(() => {
@@ -394,12 +395,83 @@ const KioskView = ({ generateTicket }) => {
       if (useAndroidUSB) {
         printLock.current = true; 
         try {
-          const receiptText = `\x1B\x40\x1B\x61\x01${PHARMACY_NAME_ZH}\n${PHARMACY_NAME}\n\n${ticket.serviceNameZh}\n${ticket.serviceName}\n\nTicket Number:\n\x1D\x21\x11${ticket.ticketNumber || ticket.id}\x1D\x21\x00\n\n${formatDate(ticket.createdAt)}\n${formatTime(ticket.createdAt)}\n\n\n\n\n\x1DV\x00`;
-          const base64Data = window.btoa(unescape(encodeURIComponent(receiptText)));
-          const rawbtUrl = `rawbt:base64,${base64Data}`;
-          window.location.href = rawbtUrl;
+          // CHECK IF WE ARE RUNNING IN THE NATIVE CAPACITOR APP WITH THE STAR PLUGIN
+          if (window.starprnt) {
+            const emulation = 'TSP100'; // FOR TSP100 PRINTERS, EMULATION MODEL IS ALWAYS 'TSP100'
+
+            // DYNAMICALLY SCAN FOR USB PRINTER INSTEAD OF HARDCODING "usb:"
+            window.starprnt.portDiscovery('USB', 
+              (devices) => {
+                console.log("Star Devices Discovered:", devices);
+                
+                // Get the found port name or fallback to "USB:"
+                const port = (devices && devices.length > 0) ? devices[0].portName : 'USB:';
+                
+                const commands = [];
+                commands.push({ appendAlignment: 'Center' });
+                commands.push({ appendCharacterSpace: 0 });
+                commands.push({ appendCodePage: 'CP950' }); // Traditional Chinese characters table support
+                
+                commands.push({ appendText: `${PHARMACY_NAME_ZH}\n` });
+                commands.push({ appendText: `${PHARMACY_NAME}\n\n` });
+                
+                commands.push({ appendMultiple: { width: 2, height: 2 } }); // Double width + height
+                commands.push({ appendText: `${ticket.serviceNameZh}\n` });
+                commands.push({ appendMultiple: { width: 1, height: 1 } }); // Normal size
+                commands.push({ appendText: `${ticket.serviceName}\n` });
+                commands.push({ appendText: '--------------------------------\n' });
+                
+                commands.push({ appendText: 'Ticket Number:\n' });
+                commands.push({ appendMultiple: { width: 3, height: 3 } }); // Huge size for number
+                commands.push({ appendText: `${ticket.ticketNumber || ticket.id}\n` });
+                commands.push({ appendMultiple: { width: 1, height: 1 } }); // Back to Normal
+                
+                commands.push({ appendText: '--------------------------------\n' });
+                commands.push({ appendText: `${formatDate(ticket.createdAt)}\n` });
+                commands.push({ appendText: `${formatTime(ticket.createdAt)}\n\n\n\n` });
+                commands.push({ appendCutPaper: 'PartialCutWithFeed' });
+
+                window.starprnt.print(port, emulation, commands, 
+                  (result) => {
+                    console.log("Star Printer Success:", result);
+                  },
+                  (error) => {
+                    console.error("Star Printer Error:", error);
+                    alert("Star Printer Error: " + JSON.stringify(error) + "\nPlease verify USB connection is secure and printer is on.");
+                  }
+                );
+              },
+              (discoveryError) => {
+                console.error("Star Port Discovery Error:", discoveryError);
+                // Fallback direct attempt if discovery fails
+                const defaultPort = 'USB:';
+                const commands = [
+                  { appendAlignment: 'Center' },
+                  { appendCodePage: 'CP950' },
+                  { appendText: `${PHARMACY_NAME_ZH}\n${PHARMACY_NAME}\n\n` },
+                  { appendMultiple: { width: 2, height: 2 } },
+                  { appendText: `${ticket.serviceNameZh}\n` },
+                  { appendMultiple: { width: 1, height: 1 } },
+                  { appendText: `${ticket.serviceName}\n\nTicket Number:\n` },
+                  { appendMultiple: { width: 3, height: 3 } },
+                  { appendText: `${ticket.ticketNumber || ticket.id}\n` },
+                  { appendMultiple: { width: 1, height: 1 } },
+                  { appendText: `\n${formatDate(ticket.createdAt)} ${formatTime(ticket.createdAt)}\n\n\n\n` },
+                  { appendCutPaper: 'PartialCutWithFeed' }
+                ];
+                window.starprnt.print(defaultPort, emulation, commands, null, (err) => alert("Failed to print directly on fallback port. Please reconnect USB."));
+              }
+            );
+
+          } else {
+            // FALLBACK TO RAWBT IF TESTING IN THE CHROME WEB BROWSER
+            const receiptText = `\x1B\x40\x1B\x61\x01${PHARMACY_NAME_ZH}\n${PHARMACY_NAME}\n\n${ticket.serviceNameZh}\n${ticket.serviceName}\n\nTicket Number:\n\x1D\x21\x11${ticket.ticketNumber || ticket.id}\x1D\x21\x00\n\n${formatDate(ticket.createdAt)}\n${formatTime(ticket.createdAt)}\n\n\n\n\n\x1DV\x00`;
+            const base64Data = window.btoa(unescape(encodeURIComponent(receiptText)));
+            const intentUrl = `intent:${base64Data}#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end;`;
+            window.location.href = intentUrl;
+          }
         } catch (error) {
-          console.error("RawBT Encoding Error:", error);
+          console.error("Printing Execution Error:", error);
         }
         setTimeout(() => setPrintedTicket(null), 3000); 
       }
@@ -435,7 +507,7 @@ const KioskView = ({ generateTicket }) => {
           <div className="p-3 text-center border-t border-gray-100 flex items-center justify-center gap-4 bg-gray-50 shrink-0">
              <label className="flex items-center gap-2 cursor-pointer text-gray-400 text-xs font-bold uppercase tracking-widest">
                 <input type="checkbox" checked={useAndroidUSB} onChange={(e) => setUseAndroidUSB(e.target.checked)} className="rounded" />
-                Android Direct USB Mode (RawBT)
+                Android Native USB Mode (Star TSP100 / RawBT)
              </label>
           </div>
           {printedTicket && (

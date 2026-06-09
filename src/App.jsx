@@ -12,7 +12,7 @@ import {
 // --- FIREBASE CLOUD SYNC IMPORTS ---
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
-import { getFirestore, collection, doc, setDoc, onSnapshot } from 'firebase/firestore';
+import { getFirestore, collection, doc, setDoc, onSnapshot, runTransaction } from 'firebase/firestore';
 
 // --- INITIALIZE FIREBASE ---
 const firebaseConfig = {
@@ -219,47 +219,45 @@ const KioskView = ({ generateTicket }) => {
       if (useTabletMode) {
         printLock.current = true; 
         try {
-          // Dynamically import the Star SDK so it doesn't crash the web preview
-          import('star-io10-web').then(async (StarIO) => {
-            const builder = new StarIO.StarXpandCommand.StarXpandCommandBuilder();
-            builder.addDocument(new StarIO.StarXpandCommand.DocumentBuilder()
-              .addPrinter(new StarIO.StarXpandCommand.PrinterBuilder()
-                .styleAlignment(StarIO.StarXpandCommand.Printer.Alignment.Center)
-                .actionPrintText(`${PHARMACY_NAME_ZH}\n`)
-                .actionPrintText(`${PHARMACY_NAME}\n\n`)
-                .styleMagnification(new StarIO.StarXpandCommand.MagnificationParameter(2, 2))
-                .actionPrintText(`${ticket.serviceNameZh}\n`)
-                .styleMagnification(new StarIO.StarXpandCommand.MagnificationParameter(1, 1))
-                .actionPrintText(`${ticket.serviceName}\n`)
-                .actionPrintText("--------------------------------\n")
-                .actionPrintText("Ticket Number:\n")
-                .styleMagnification(new StarIO.StarXpandCommand.MagnificationParameter(3, 3))
-                .actionPrintText(`${ticket.ticketNumber || ticket.id}\n`)
-                .styleMagnification(new StarIO.StarXpandCommand.MagnificationParameter(1, 1))
-                .actionPrintText("--------------------------------\n")
-                .actionPrintText(`${formatDate(ticket.createdAt)}\n`)
-                .actionPrintText(`${formatTime(ticket.createdAt)}\n\n\n\n`)
-                .actionCut(StarIO.StarXpandCommand.Printer.CutType.Partial)
-              )
-            );
+          // Native Star TSP100 Printing Code (Using the Capacitor Plugin)
+          if (window.starprnt) {
+             const port = 'USB:'; 
+             const emulation = 'TSP100'; 
+             
+             const commands = [];
+             commands.push({ appendAlignment: 'Center' });
+             commands.push({ appendCodePage: 'CP950' }); // Force Traditional Chinese
+             commands.push({ appendText: `${PHARMACY_NAME_ZH}\n` });
+             commands.push({ appendText: `${PHARMACY_NAME}\n\n` });
+             
+             commands.push({ appendMultiple: { width: 2, height: 2 } });
+             commands.push({ appendText: `${ticket.serviceNameZh}\n` });
+             commands.push({ appendMultiple: { width: 1, height: 1 } });
+             commands.push({ appendText: `${ticket.serviceName}\n` });
+             commands.push({ appendText: '--------------------------------\n' });
+             
+             commands.push({ appendText: 'Ticket Number:\n' });
+             commands.push({ appendMultiple: { width: 3, height: 3 } }); 
+             commands.push({ appendText: `${ticket.ticketNumber || ticket.id}\n` });
+             commands.push({ appendMultiple: { width: 1, height: 1 } });
+             
+             commands.push({ appendText: '--------------------------------\n' });
+             commands.push({ appendText: `${formatDate(ticket.createdAt)}\n` });
+             commands.push({ appendText: `${formatTime(ticket.createdAt)}\n\n\n\n` });
+             commands.push({ appendCutPaper: 'PartialCutWithFeed' });
 
-            const commands = builder.getCommands();
-            const settings = new StarIO.StarConnectionSettings();
-            settings.interfaceType = StarIO.StarConnectionSettings.InterfaceType.Lan;
-            settings.identifier = '192.168.1.147'; // PRINTER IP ADDRESS
-            
-            const printer = new StarIO.StarPrinter(settings);
-            await printer.open();
-            await printer.print(commands);
-            await printer.close();
-            
-            console.log("StarIO10 Network Print Successful!");
-          }).catch(err => {
-            console.error("StarIO SDK could not be loaded in web preview mode", err);
-          });
+             window.starprnt.print(port, emulation, commands, 
+               (result) => { console.log("Star Printer Success:", result); },
+               (error) => { alert("Star Printer Error: Check if the USB is connected and printer is powered on."); }
+             );
+          } else {
+             // If they check the box but aren't in the APK, try RawBT
+             const receiptText = `\x1B\x40\x1B\x61\x01${PHARMACY_NAME_ZH}\n${PHARMACY_NAME}\n\n${ticket.serviceNameZh}\n${ticket.serviceName}\n\nTicket Number:\n\x1D\x21\x11${ticket.ticketNumber || ticket.id}\x1D\x21\x00\n\n${formatDate(ticket.createdAt)}\n${formatTime(ticket.createdAt)}\n\n\n\n\n\x1DV\x00`;
+             const base64Data = window.btoa(unescape(encodeURIComponent(receiptText)));
+             window.location.href = `intent:${base64Data}#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end;`;
+          }
         } catch (error) {
-          console.error("StarIO10 Print Error:", error);
-          alert("Network Printer Error: Check if printer is on and connected to the same Wi-Fi as this tablet.");
+          console.error("Print Execution Error:", error);
         }
         setTimeout(() => setPrintedTicket(null), 3000); 
       }
@@ -726,16 +724,47 @@ export default function App() {
     if (!user) return null;
     try {
       const service = SERVICES.find(s => s.id === serviceId);
-      const newNum = (counters[serviceId] || 0) + 1;
       const counterRef = doc(db, 'artifacts', appId, 'public', 'data', 'counters', serviceId);
-      await setDoc(counterRef, { count: newNum });
+      
+      // FIX: Use a Firebase Transaction to guarantee sequential numbers across all devices
+      const newNum = await runTransaction(db, async (transaction) => {
+        const counterDoc = await transaction.get(counterRef);
+        if (!counterDoc.exists()) {
+          transaction.set(counterRef, { count: 1 });
+          return 1;
+        }
+        const newCount = (counterDoc.data().count || 0) + 1;
+        transaction.update(counterRef, { count: newCount });
+        return newCount;
+      });
+
       const ticketNumber = `${serviceId}${newNum.toString().padStart(3, '0')}`;
-      const docId = `ticket_${Date.now()}`;
-      const newTicket = { id: docId, ticketNumber, type: serviceId, serviceName: service.name, serviceNameZh: service.nameZh, status: 'waiting', createdAt: new Date().toISOString(), calledAt: null, arrivedAt: null, completedAt: null, calledByCounter: null, memo: '', isReturned: false };
+      const docId = `ticket_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+      
+      const newTicket = { 
+        id: docId, 
+        ticketNumber, 
+        type: serviceId, 
+        serviceName: service.name, 
+        serviceNameZh: service.nameZh, 
+        status: 'waiting', 
+        createdAt: new Date().toISOString(), 
+        calledAt: null, 
+        arrivedAt: null, 
+        completedAt: null, 
+        calledByCounter: null, 
+        memo: '', 
+        isReturned: false 
+      };
+      
       const ticketRef = doc(db, 'artifacts', appId, 'public', 'data', 'tickets', docId);
       await setDoc(ticketRef, newTicket);
       return newTicket;
-    } catch (e) { console.error(e); return null; }
+    } catch (e) { 
+      console.error("Ticket Generation Error:", e); 
+      alert("Failed to generate ticket. Please check connection.");
+      return null; 
+    }
   };
 
   const updateTicketStatus = async (ticketId, newStatus, counterName = null) => {

@@ -211,18 +211,15 @@ const KioskView = ({ generateTicket }) => {
     setIsGenerating(true);
     printLock.current = false;
     
-    try {
-      const ticket = await generateTicket(serviceId);
+    const ticket = await generateTicket(serviceId);
+    
+    if (ticket) {
+      setPrintedTicket(ticket);
       
-      if (ticket) {
-        setPrintedTicket(ticket);
-        
-        if (useTabletMode) {
-          printLock.current = true; 
-          
-          // --- BULLETPROOF NATIVE ANDROID PRINTING ---
-          
-          // 1. Try Native Cordova Plugin First
+      if (useTabletMode) {
+        printLock.current = true; 
+        try {
+          // Native Star TSP100 Printing Code (Using the Capacitor Plugin)
           if (window.starprnt) {
              const port = 'USB:'; 
              const emulation = 'TSP100'; 
@@ -254,40 +251,18 @@ const KioskView = ({ generateTicket }) => {
                (error) => { alert("Star Printer Error: Check if the USB is connected and printer is powered on."); }
              );
           } else {
-             // 2. Fallback to Star PassPRNT App if Native Plugin isn't found
-             const receiptText = 
-                `[align]center\n` +
-                `${PHARMACY_NAME_ZH}\n` +
-                `${PHARMACY_NAME}\n\n` +
-                `[mag]w2,h2\n` +
-                `${ticket.serviceNameZh}\n` +
-                `[mag]w1,h1\n` +
-                `${ticket.serviceName}\n` +
-                `--------------------------------\n` +
-                `Ticket Number:\n` +
-                `[mag]w3,h3\n` +
-                `${ticket.ticketNumber || ticket.id}\n` +
-                `[mag]w1,h1\n` +
-                `--------------------------------\n` +
-                `${formatDate(ticket.createdAt)}\n` +
-                `${formatTime(ticket.createdAt)}\n\n\n\n` +
-                `[cut]`;
-             
-             const encodedReceipt = encodeURIComponent(receiptText);
-             const passPrntUrl = `passprnt://v1/print?back=${encodeURIComponent(window.location.href)}&popup=no&driver=starprnt&port=usb:&data=${encodedReceipt}`;
-             
-             window.location.href = passPrntUrl;
+             // If they check the box but aren't in the APK, try RawBT
+             const receiptText = `\x1B\x40\x1B\x61\x01${PHARMACY_NAME_ZH}\n${PHARMACY_NAME}\n\n${ticket.serviceNameZh}\n${ticket.serviceName}\n\nTicket Number:\n\x1D\x21\x11${ticket.ticketNumber || ticket.id}\x1D\x21\x00\n\n${formatDate(ticket.createdAt)}\n${formatTime(ticket.createdAt)}\n\n\n\n\n\x1DV\x00`;
+             const base64Data = window.btoa(unescape(encodeURIComponent(receiptText)));
+             window.location.href = `intent:${base64Data}#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end;`;
           }
-          
-          setTimeout(() => setPrintedTicket(null), 3000); 
+        } catch (error) {
+          console.error("Print Execution Error:", error);
         }
+        setTimeout(() => setPrintedTicket(null), 3000); 
       }
-    } catch (error) {
-      console.error("Print Execution Error:", error);
-      alert("Error printing ticket. Please try again.");
-    } finally {
-      setIsGenerating(false);
     }
+    setIsGenerating(false);
   };
 
   const handleManualPrint = () => {
@@ -312,7 +287,7 @@ const KioskView = ({ generateTicket }) => {
                     <span className="text-4xl md:text-5xl font-black">{service.id}</span>
                   </div>
                   <div className="flex-1 pl-1">
-                    <h2 className="text-2xl md:text-3xl font-bold leading-tight mb-1">{service.nameZh}</h2>
+                    <h2 className="text-xl md:text-2xl lg:text-3xl font-bold leading-tight mb-1">{service.nameZh}</h2>
                     <h3 className="text-xs md:text-sm opacity-90 italic font-medium">{service.name}</h3>
                   </div>
                 </div>
@@ -341,7 +316,6 @@ const KioskView = ({ generateTicket }) => {
         </div>
       </div>
 
-      {/* --- PRINTABLE TICKET --- */}
       {printedTicket && !useTabletMode && (
         <div className="hidden print:block text-black text-center w-full max-w-[80mm] mx-auto p-4 font-sans bg-white z-[9999] m-0">
           <div className="flex flex-col items-center mb-4 border-b-2 border-black pb-4 text-center">
@@ -374,20 +348,9 @@ const MonitorView = ({ tickets, waitingTickets, lastCallEvent, isStarted, onStar
   const ticketsRef = useRef(tickets);
   useEffect(() => { ticketsRef.current = tickets; }, [tickets]);
 
-  const handleStartMonitor = () => {
-    if (window.speechSynthesis) {
-      const initVoice = new SpeechSynthesisUtterance('Monitor active');
-      initVoice.volume = 0; 
-      window.speechSynthesis.speak(initVoice);
-    }
-    setIsAudioEnabled(true);
-    setShowOverlay(false);
-  };
-
   useEffect(() => {
     if (lastCallEvent.time && isStarted) {
       if (Date.now() - lastCallEvent.time > 15000) return;
-
       setFlash(true);
       const timer = setTimeout(() => setFlash(false), 3000);
       
@@ -547,8 +510,8 @@ const PanelView = ({
                           <button onClick={() => setReturnModal({ id: ticket.id, displayId: displayId })} className="p-2 bg-white rounded-lg border border-gray-200 text-orange-500 hover:text-orange-600 shadow-sm"><RotateCcw className="w-5 h-5" /></button>
                         </div>
                       </div>
-                      <div className="text-sm text-gray-600 font-bold">{ticket.serviceNameZh} <span className="opacity-50 font-normal italic">({ticket.serviceName})</span></div>
-                      {ticket.memo && <div className="mt-2 text-blue-700 bg-white px-3 py-1.5 rounded-lg text-sm border border-blue-200 shadow-sm font-bold">{ticket.memo}</div>}
+                      <div className="text-sm text-gray-600 font-medium">{ticket.serviceNameZh}</div>
+                      {ticket.memo && <div className="mt-2 text-blue-700 bg-white px-3 py-1.5 rounded-lg text-sm border border-blue-200 shadow-sm flex items-start gap-2"><FileEdit className="w-4 h-4 shrink-0 mt-0.5" /> <span className="break-words font-bold">{ticket.memo}</span></div>}
                     </div>
                     <div className="flex flex-wrap sm:flex-nowrap gap-2 w-full xl:w-auto mt-2 xl:mt-0">
                       <button onClick={() => setMemoModal({ id: ticket.id, displayId: displayId, text: ticket.memo || '' })} className="hidden xl:flex p-3 bg-white rounded-lg border border-gray-200 text-gray-500 hover:text-blue-600 hover:bg-blue-50 transition-colors shadow-sm" title="Add Memo"><Edit3 className="w-5 h-5" /></button>
@@ -558,7 +521,7 @@ const PanelView = ({
                         <>
                           <button onClick={()=>updateTicketStatus(ticket.id, 'calling', panelRoom)} className="p-3 bg-white border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 flex-1 sm:flex-none shadow-sm" title="Recall (Ring Bell)"><BellRing className="w-5 h-5 mx-auto" /></button>
                           <button onClick={()=>updateTicketStatus(ticket.id, 'arrived')} className="bg-blue-600 text-white font-bold px-6 py-3 rounded-lg hover:bg-blue-700 flex-1 sm:flex-none shadow-sm active:scale-95">顧客已到 Arrived</button>
-                          <button onClick={()=>updateTicketStatus(ticket.id, 'missed')} className="bg-red-50 text-red-600 font-bold px-4 py-3 rounded-lg hover:bg-red-100 flex-1 sm:flex-none">過號 Miss</button>
+                          <button onClick={()=>updateTicketStatus(ticket.id, 'missed')} className="bg-red-50 border border-red-200 text-red-600 font-bold px-4 py-3 rounded-lg hover:bg-red-100 flex-1 sm:flex-none">過號 Miss</button>
                         </>
                       ) : (
                         <button onClick={()=>updateTicketStatus(ticket.id, 'completed')} className="bg-green-600 text-white font-bold px-8 py-3 rounded-lg hover:bg-green-700 w-full xl:w-auto shadow-sm active:scale-95 flex items-center justify-center gap-2"><CheckCircle className="w-5 h-5"/> 完成服務 Complete</button>
@@ -598,19 +561,21 @@ const PanelView = ({
         <div className="p-4 border-b border-gray-200 bg-gray-50 flex flex-col gap-3 shrink-0">
           <div className="flex justify-between items-center"><h3 className="font-bold text-gray-700 flex items-center gap-2 text-left"><Users className="w-5 h-5 text-blue-500"/> 等待隊列 Queue <span className="bg-blue-100 text-blue-800 text-xs px-2 py-0.5 rounded-full font-bold">{waitingTickets.length}</span></h3></div>
           <div className="flex bg-gray-200 p-1 rounded-lg">
-            <button onClick={() => setQueueSortBy('time')} className={`flex-1 flex justify-center items-center gap-1 text-xs font-bold py-2 rounded-md transition-all ${queueSortBy === 'time' ? 'bg-white shadow-sm text-gray-800' : 'text-gray-500'}`}><Timer className="w-4 h-4" /> 時間 Time</button>
-            <button onClick={() => setQueueSortBy('number')} className={`flex-1 flex justify-center items-center gap-1 text-xs font-bold py-2 rounded-md transition-all ${queueSortBy === 'number' ? 'bg-white shadow-sm text-gray-800' : 'text-gray-500'}`}><ArrowUpDown className="w-4 h-4" /> 籌號 No.</button>
+            <button onClick={() => setQueueSortBy('time')} className={`flex-1 flex justify-center items-center gap-1 text-xs font-bold py-2 rounded-md transition-all ${queueSortBy === 'time' ? 'bg-white shadow-sm text-gray-800' : 'text-gray-500'}`}><Timer className="w-4 h-4" /> 等待時間 Time</button>
+            <button onClick={() => setQueueSortBy('number')} className={`flex-1 flex justify-center items-center gap-1 text-xs font-bold py-2 rounded-md transition-all ${queueSortBy === 'number' ? 'bg-white shadow-sm text-gray-800' : 'text-gray-500'}`}><ArrowUpDown className="w-4 h-4" /> 籌號 Number</button>
           </div>
         </div>
         <div className="flex-1 overflow-y-auto divide-y divide-gray-100">
           {sortedWaitingTickets.map(t => {
             const displayId = t.ticketNumber || t.id;
             return (
-              <div key={t.id} onContextMenu={(e) => { e.preventDefault(); setMemoModal({ id: t.id, displayId: displayId, text: t.memo || '' }); }} className={`p-4 transition-colors flex justify-between items-center group relative border-l-4 hover:bg-gray-50 text-left ${t.status === 'waiting' && getWaitTimeMinutes(t.createdAt, currentTime) > 10 ? 'bg-red-50 border-red-500' : 'border-transparent'}`}>
+              <div key={t.id} onContextMenu={(e) => { e.preventDefault(); setMemoModal({ id: t.id, displayId: displayId, text: t.memo || '' }); }} className="p-4 transition-colors flex justify-between items-center group relative border-l-4 hover:bg-gray-50 text-left">
                 <div className="flex-1 min-w-0 pr-4">
-                  <div className="text-xl font-black">{displayId}</div>
-                  <div className="text-xs font-bold mt-1 text-gray-600 text-left">已等待: {getWaitTimeMinutes(t.createdAt, currentTime)} 分鐘</div>
-                  {t.memo && <div className="text-xs mt-2 p-1.5 rounded border border-blue-100 bg-blue-50 text-blue-700 truncate font-bold text-left">{t.memo}</div>}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <div className="text-xl font-black">{displayId}</div>
+                    <div className="text-xs font-bold mt-1 text-gray-600 text-left">已等待: {getWaitTimeMinutes(t.createdAt, currentTime)} 分鐘</div>
+                    {t.memo && <div className="text-xs mt-2 p-1.5 rounded border border-blue-100 bg-blue-50 text-blue-700 truncate font-bold text-left">{t.memo}</div>}
+                  </div>
                 </div>
                 <div className="flex gap-2 shrink-0 items-center">
                   <button onClick={() => updateTicketStatus(t.id, 'calling', panelRoom)} className="px-4 py-2 bg-blue-100 text-blue-700 font-bold rounded-lg text-sm hover:bg-blue-600 hover:text-white transition-all shadow-sm">叫號</button>
@@ -716,7 +681,7 @@ export default function App() {
     const unsubTickets = onSnapshot(ticketsRef, (snapshot) => {
       const loadedTickets = []; snapshot.forEach(doc => loadedTickets.push(doc.data()));
       setTickets(loadedTickets);
-    }, (err) => console.error("Firestore Error:", err));
+    });
 
     const countersRef = collection(db, 'artifacts', appId, 'public', 'data', 'counters');
     const unsubCounters = onSnapshot(countersRef, (snapshot) => {
@@ -761,6 +726,7 @@ export default function App() {
       const service = SERVICES.find(s => s.id === serviceId);
       const counterRef = doc(db, 'artifacts', appId, 'public', 'data', 'counters', serviceId);
       
+      // FIX: Use a Firebase Transaction to guarantee sequential numbers across all devices
       const newNum = await runTransaction(db, async (transaction) => {
         const counterDoc = await transaction.get(counterRef);
         if (!counterDoc.exists()) {
@@ -858,7 +824,7 @@ export default function App() {
         <div className="flex items-center gap-2 md:gap-3 cursor-pointer" onClick={() => setCurrentView('home')}>
           <img src={LOGO_PATH} alt="Logo" className="h-10 md:h-12 w-auto object-contain drop-shadow-sm" onError={(e) => e.target.style.display='none'} />
           <div className="bg-teal-600 p-1.5 md:p-2 rounded-lg hidden sm:block"><Ticket className="w-5 h-5 text-white" /></div>
-          <span className="font-bold text-lg md:text-xl text-gray-800 truncate tracking-tight">SJS 排隊系統 Queue <span className="text-gray-400 font-normal text-xs ml-2">v1.3.2</span></span>
+          <span className="font-bold text-lg md:text-xl text-gray-800 truncate tracking-tight">SJS 排隊系統 Queue <span className="text-gray-400 font-normal text-xs ml-2">v1.3.0</span></span>
         </div>
         <button className="md:hidden p-2 text-gray-600" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}><Menu className="w-6 h-6" /></button>
         <div className="hidden md:flex items-center bg-gray-100 p-1 rounded-lg gap-1">

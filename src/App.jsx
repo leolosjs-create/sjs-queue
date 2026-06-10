@@ -6,7 +6,7 @@ import {
   Timer, FileEdit, BarChart3, TrendingUp, Users, Database,
   Lock, KeyRound, AlertTriangle, Edit3, Menu, RotateCcw,
   Volume2, VolumeX, Trash2, Play, Calendar, History,
-  ShoppingBag, ClipboardList, HeartPulse, Laptop
+  ShoppingBag, ClipboardList, HeartPulse, Laptop, Usb
 } from 'lucide-react';
 
 // --- FIREBASE CLOUD SYNC IMPORTS ---
@@ -35,6 +35,7 @@ const PHARMACY_NAME = "PHARM+ St. James' Settlement Community Pharmacy";
 const PHARMACY_NAME_ZH = "藥健同心聖雅各福群會社區藥房";
 const STAFF_PIN = "1234"; // Default security PIN
 const LOGO_PATH = "/logo.png"; // Path to your logo in the public folder
+const PRINTER_IP = '192.168.1.147'; // Star TSP100IV IP Address for LAN Fallback
 
 const SERVICES = [
   { id: 'A', name: 'Prescription Dispensing', nameZh: '處方配藥', icon: Ticket, color: 'bg-blue-600', hover: 'hover:bg-blue-700' },
@@ -189,14 +190,14 @@ const LoginView = ({ setCurrentView, setIsStaffAuthenticated }) => {
 };
 
 const KioskView = ({ generateTicket }) => {
-  const [useTabletMode, setUseTabletMode] = useState(true);
+  const [printConnection, setPrintConnection] = useState('usb'); // 'usb', 'lan', 'desktop'
   const [printedTicket, setPrintedTicket] = useState(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const printLock = useRef(false);
 
-  // Chrome Web Printing Fallback (When Tablet Mode is OFF)
+  // Chrome Web Printing Fallback (When Desktop Mode is selected)
   useEffect(() => {
-    if (printedTicket && !printLock.current && !useTabletMode) {
+    if (printedTicket && !printLock.current && printConnection === 'desktop') {
       printLock.current = true;
       const timer = setTimeout(() => {
         window.print();
@@ -204,7 +205,78 @@ const KioskView = ({ generateTicket }) => {
       }, 300); 
       return () => clearTimeout(timer);
     }
-  }, [printedTicket, useTabletMode]);
+  }, [printedTicket, printConnection]);
+
+  // Network/USB Auto-Print via Star Web SDK
+  const autoPrintToStarTSP = async (ticket, serviceInfo) => {
+    try {
+      const starIo = await import('star-io10-web');
+      if (!starIo) throw new Error("Star SDK not loaded");
+
+      const { StarXpandCommand, StarPrinter, StarConnectionSettings } = starIo;
+      
+      const settings = new StarConnectionSettings();
+      
+      if (printConnection === 'usb') {
+        settings.interfaceType = StarConnectionSettings.InterfaceType.Usb;
+        settings.identifier = 'usb:'; // Targets WebUSB 
+      } else {
+        settings.interfaceType = StarConnectionSettings.InterfaceType.Lan;
+        settings.identifier = PRINTER_IP;
+      }
+      
+      const printer = new StarPrinter(settings);
+      
+      await printer.open();
+      
+      // 80mm Width (8cm) x Approx 18cm Length Formatting
+      const builder = new StarXpandCommand.StarXpandCommandBuilder();
+      const docBuilder = new StarXpandCommand.DocumentBuilder();
+      const printerBuilder = new StarXpandCommand.PrinterBuilder();
+
+      printerBuilder
+        .styleAlignment(StarXpandCommand.Printer.Alignment.Center)
+        // Header
+        .styleMagnification(new StarXpandCommand.MagnificationParameter(2, 2))
+        .actionPrintText(`${PHARMACY_NAME_ZH}\n`)
+        .actionPrintText(`${PHARMACY_NAME}\n\n`)
+        .styleMagnification(new StarXpandCommand.MagnificationParameter(1, 1))
+        
+        // Service Type
+        .actionPrintText(`${serviceInfo.nameZh}\n`)
+        .actionPrintText(`${serviceInfo.name}\n`)
+        .actionPrintText("------------------------------------------\n\n") // 80mm width line
+        
+        // Ticket Number
+        .actionPrintText("Ticket Number / 籌號:\n")
+        .styleMagnification(new StarXpandCommand.MagnificationParameter(4, 4))
+        .actionPrintText(`\n${ticket.ticketNumber || ticket.id}\n\n`)
+        .styleMagnification(new StarXpandCommand.MagnificationParameter(1, 1))
+        
+        // Footer & Timestamp
+        .actionPrintText("------------------------------------------\n")
+        .actionPrintText(`Date: ${formatDate(ticket.createdAt)}\n`)
+        .actionPrintText(`Time: ${formatTime(ticket.createdAt)}\n`)
+        .actionPrintText("\nPlease wait for your number to be called.\n請留意叫號螢幕。\n")
+        
+        // Padding to stretch the receipt to roughly 18cm length before cut
+        .actionPrintText("\n\n\n\n\n\n\n\n") 
+        .actionCut(StarXpandCommand.Printer.CutType.Partial);
+
+      docBuilder.addPrinter(printerBuilder);
+      builder.addDocument(docBuilder);
+      
+      await printer.print(builder.getCommands());
+      await printer.close();
+    } catch (error) {
+      console.error("Star TSP100IV Auto-Print Failed:", error);
+      if (error.name === 'NotSupportedError' || (error.message && error.message.toLowerCase().includes('support'))) {
+        alert("⚠️ USB Printing Requires Google Chrome!\n\nCapacitor APKs block native WebUSB. Please open your live website URL directly in the Google Chrome browser on your tablet, or switch to Wi-Fi/LAN mode.");
+      } else {
+        alert("Printer Error: " + error.message + "\n\nPlease check if the printer is turned on and connected properly.");
+      }
+    }
+  };
 
   const handlePrint = async (serviceId) => {
     if (isGenerating) return;
@@ -216,46 +288,11 @@ const KioskView = ({ generateTicket }) => {
     if (ticket) {
       setPrintedTicket(ticket);
       
-      if (useTabletMode) {
+      if (printConnection !== 'desktop') {
         printLock.current = true; 
         try {
-          // Native Star TSP100 Printing Code (Using the Capacitor Plugin)
-          if (window.starprnt) {
-             const port = 'USB:'; 
-             const emulation = 'TSP100'; 
-             
-             const commands = [];
-             commands.push({ appendAlignment: 'Center' });
-             commands.push({ appendCodePage: 'CP950' }); // Force Traditional Chinese
-             commands.push({ appendText: `${PHARMACY_NAME_ZH}\n` });
-             commands.push({ appendText: `${PHARMACY_NAME}\n\n` });
-             
-             commands.push({ appendMultiple: { width: 2, height: 2 } });
-             commands.push({ appendText: `${ticket.serviceNameZh}\n` });
-             commands.push({ appendMultiple: { width: 1, height: 1 } });
-             commands.push({ appendText: `${ticket.serviceName}\n` });
-             commands.push({ appendText: '--------------------------------\n' });
-             
-             commands.push({ appendText: 'Ticket Number:\n' });
-             commands.push({ appendMultiple: { width: 3, height: 3 } }); 
-             commands.push({ appendText: `${ticket.ticketNumber || ticket.id}\n` });
-             commands.push({ appendMultiple: { width: 1, height: 1 } });
-             
-             commands.push({ appendText: '--------------------------------\n' });
-             commands.push({ appendText: `${formatDate(ticket.createdAt)}\n` });
-             commands.push({ appendText: `${formatTime(ticket.createdAt)}\n\n\n\n` });
-             commands.push({ appendCutPaper: 'PartialCutWithFeed' });
-
-             window.starprnt.print(port, emulation, commands, 
-               (result) => { console.log("Star Printer Success:", result); },
-               (error) => { alert("Star Printer Error: Check if the USB is connected and printer is powered on."); }
-             );
-          } else {
-             // If they check the box but aren't in the APK, try RawBT
-             const receiptText = `\x1B\x40\x1B\x61\x01${PHARMACY_NAME_ZH}\n${PHARMACY_NAME}\n\n${ticket.serviceNameZh}\n${ticket.serviceName}\n\nTicket Number:\n\x1D\x21\x11${ticket.ticketNumber || ticket.id}\x1D\x21\x00\n\n${formatDate(ticket.createdAt)}\n${formatTime(ticket.createdAt)}\n\n\n\n\n\x1DV\x00`;
-             const base64Data = window.btoa(unescape(encodeURIComponent(receiptText)));
-             window.location.href = `intent:${base64Data}#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end;`;
-          }
+          const serviceInfo = SERVICES.find(s => s.id === serviceId);
+          await autoPrintToStarTSP(ticket, serviceInfo);
         } catch (error) {
           console.error("Print Execution Error:", error);
         }
@@ -295,18 +332,29 @@ const KioskView = ({ generateTicket }) => {
               </button>
             ))}
           </div>
-          <div className="p-3 text-center border-t border-gray-100 flex items-center justify-center gap-4 bg-gray-50 shrink-0">
-             <label className="flex items-center gap-2 cursor-pointer text-gray-400 text-xs font-bold uppercase tracking-widest">
-                <input type="checkbox" checked={useTabletMode} onChange={(e) => setUseTabletMode(e.target.checked)} className="rounded" />
-                <span>Tablet Printing Mode <span className="text-gray-400 font-normal text-sm ml-1">(Uncheck if using a Desktop PC <Laptop className="w-4 h-4 inline mb-1"/>)</span></span>
-             </label>
+          <div className="p-4 text-center border-t border-gray-100 flex flex-col items-center justify-center gap-3 bg-gray-50 shrink-0">
+             <span className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Select Connection Mode</span>
+             <div className="flex flex-wrap justify-center items-center gap-4 md:gap-8">
+                <label className={`flex items-center gap-2 cursor-pointer font-bold uppercase text-xs md:text-sm tracking-widest transition-colors ${printConnection === 'usb' ? 'text-blue-600' : 'text-gray-400 hover:text-gray-600'}`}>
+                   <input type="radio" checked={printConnection === 'usb'} onChange={() => setPrintConnection('usb')} className="w-4 h-4" />
+                   <span>Tablet USB Cable <Usb className="w-4 h-4 inline mb-1"/></span>
+                </label>
+                <label className={`flex items-center gap-2 cursor-pointer font-bold uppercase text-xs md:text-sm tracking-widest transition-colors ${printConnection === 'lan' ? 'text-blue-600' : 'text-gray-400 hover:text-gray-600'}`}>
+                   <input type="radio" checked={printConnection === 'lan'} onChange={() => setPrintConnection('lan')} className="w-4 h-4" />
+                   <span>Wi-Fi / LAN</span>
+                </label>
+                <label className={`flex items-center gap-2 cursor-pointer font-bold uppercase text-xs md:text-sm tracking-widest transition-colors ${printConnection === 'desktop' ? 'text-blue-600' : 'text-gray-400 hover:text-gray-600'}`}>
+                   <input type="radio" checked={printConnection === 'desktop'} onChange={() => setPrintConnection('desktop')} className="w-4 h-4" />
+                   <span>Desktop PC <Laptop className="w-4 h-4 inline mb-1"/></span>
+                </label>
+             </div>
           </div>
           {printedTicket && (
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
               <div className="bg-white p-8 rounded-3xl shadow-2xl w-full max-w-sm text-center border-t-8 border-blue-600 animate-in zoom-in-95 duration-200">
                 <h2 className="text-xl font-bold text-gray-800 mb-1">您的籌號 Your Ticket</h2>
                 <div className="text-7xl md:text-8xl font-black text-blue-600 my-4 tracking-tighter">{printedTicket.ticketNumber || printedTicket.id}</div>
-                {!useTabletMode && (
+                {printConnection === 'desktop' && (
                   <button onClick={handleManualPrint} className="mt-2 bg-blue-50 text-blue-700 font-bold py-4 px-6 rounded-full flex items-center justify-center gap-2 hover:bg-blue-100 transition-colors w-full border border-blue-200 mb-6 text-xl"><Printer className="w-6 h-6" /> 列印籌號 Print</button>
                 )}
                 <button onClick={() => setPrintedTicket(null)} className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold w-full py-4 rounded-xl transition-colors">關閉 Close</button>
@@ -316,7 +364,7 @@ const KioskView = ({ generateTicket }) => {
         </div>
       </div>
 
-      {printedTicket && !useTabletMode && (
+      {printedTicket && printConnection === 'desktop' && (
         <div className="hidden print:block text-black text-center w-full max-w-[80mm] mx-auto p-4 font-sans bg-white z-[9999] m-0">
           <div className="flex flex-col items-center mb-4 border-b-2 border-black pb-4 text-center">
             <img src={LOGO_PATH} alt="Logo" className="w-11/12 max-w-[70mm] h-auto object-contain mb-4 mx-auto" onError={(e) => e.target.style.display='none'} />
@@ -726,7 +774,6 @@ export default function App() {
       const service = SERVICES.find(s => s.id === serviceId);
       const counterRef = doc(db, 'artifacts', appId, 'public', 'data', 'counters', serviceId);
       
-      // FIX: Use a Firebase Transaction to guarantee sequential numbers across all devices
       const newNum = await runTransaction(db, async (transaction) => {
         const counterDoc = await transaction.get(counterRef);
         if (!counterDoc.exists()) {

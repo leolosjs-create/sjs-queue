@@ -219,44 +219,49 @@ const KioskView = ({ generateTicket }) => {
       if (useTabletMode) {
         printLock.current = true; 
         try {
-          // Dynamically import the Star SDK so it doesn't crash the web preview
-          import('star-io10-web').then(async (StarIO) => {
-            const builder = new StarIO.StarXpandCommand.StarXpandCommandBuilder();
-            builder.addDocument(new StarIO.StarXpandCommand.DocumentBuilder()
-              .addPrinter(new StarIO.StarXpandCommand.PrinterBuilder()
-                .styleAlignment(StarIO.StarXpandCommand.Printer.Alignment.Center)
-                .actionPrintText(`${PHARMACY_NAME_ZH}\n`)
-                .actionPrintText(`${PHARMACY_NAME}\n\n`)
-                .styleMagnification(new StarIO.StarXpandCommand.MagnificationParameter(2, 2))
-                .actionPrintText(`${ticket.serviceNameZh}\n`)
-                .styleMagnification(new StarIO.StarXpandCommand.MagnificationParameter(1, 1))
-                .actionPrintText(`${ticket.serviceName}\n`)
-                .actionPrintText("--------------------------------\n")
-                .actionPrintText("Ticket Number:\n")
-                .styleMagnification(new StarIO.StarXpandCommand.MagnificationParameter(3, 3))
-                .actionPrintText(`${ticket.ticketNumber || ticket.id}\n`)
-                .styleMagnification(new StarIO.StarXpandCommand.MagnificationParameter(1, 1))
-                .actionPrintText("--------------------------------\n")
-                .actionPrintText(`${formatDate(ticket.createdAt)}\n`)
-                .actionPrintText(`${formatTime(ticket.createdAt)}\n\n\n\n`)
-                .actionCut(StarIO.StarXpandCommand.Printer.CutType.Partial)
-              )
-            );
+          let StarIO;
+          try {
+            StarIO = await import('star-io10-web');
+          } catch (importErr) {
+            console.warn("StarIO SDK could not be loaded (web preview mode). Simulating print.", importErr);
+            setTimeout(() => setPrintedTicket(null), 3000); 
+            setIsGenerating(false);
+            return;
+          }
 
-            const commands = builder.getCommands();
-            const settings = new StarIO.StarConnectionSettings();
-            settings.interfaceType = StarIO.StarConnectionSettings.InterfaceType.Lan;
-            settings.identifier = '192.168.1.147'; // PRINTER IP ADDRESS
-            
-            const printer = new StarIO.StarPrinter(settings);
-            await printer.open();
-            await printer.print(commands);
-            await printer.close();
-            
-            console.log("StarIO10 Network Print Successful!");
-          }).catch(err => {
-            console.error("StarIO SDK could not be loaded in web preview mode", err);
-          });
+          const builder = new StarIO.StarXpandCommand.StarXpandCommandBuilder();
+          builder.addDocument(new StarIO.StarXpandCommand.DocumentBuilder()
+            .addPrinter(new StarIO.StarXpandCommand.PrinterBuilder()
+              .styleAlignment(StarIO.StarXpandCommand.Printer.Alignment.Center)
+              .actionPrintText(`${PHARMACY_NAME_ZH}\n`)
+              .actionPrintText(`${PHARMACY_NAME}\n\n`)
+              .styleMagnification(new StarIO.StarXpandCommand.MagnificationParameter(2, 2))
+              .actionPrintText(`${ticket.serviceNameZh}\n`)
+              .styleMagnification(new StarIO.StarXpandCommand.MagnificationParameter(1, 1))
+              .actionPrintText(`${ticket.serviceName}\n`)
+              .actionPrintText("--------------------------------\n")
+              .actionPrintText("Ticket Number:\n")
+              .styleMagnification(new StarIO.StarXpandCommand.MagnificationParameter(3, 3))
+              .actionPrintText(`${ticket.ticketNumber || ticket.id}\n`)
+              .styleMagnification(new StarIO.StarXpandCommand.MagnificationParameter(1, 1))
+              .actionPrintText("--------------------------------\n")
+              .actionPrintText(`${formatDate(ticket.createdAt)}\n`)
+              .actionPrintText(`${formatTime(ticket.createdAt)}\n\n\n\n`)
+              .actionCut(StarIO.StarXpandCommand.Printer.CutType.Partial)
+            )
+          );
+
+          const commands = builder.getCommands();
+          const settings = new StarIO.StarConnectionSettings();
+          settings.interfaceType = StarIO.StarConnectionSettings.InterfaceType.Lan;
+          settings.identifier = '192.168.1.147'; // PRINTER IP ADDRESS
+          
+          const printer = new StarIO.StarPrinter(settings);
+          await printer.open();
+          await printer.print(commands);
+          await printer.close();
+          
+          console.log("StarIO10 Network Print Successful!");
         } catch (error) {
           console.error("StarIO10 Print Error:", error);
           alert("Network Printer Error: Check if printer is on and connected to the same Wi-Fi as this tablet.");

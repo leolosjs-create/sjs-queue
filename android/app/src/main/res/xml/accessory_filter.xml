@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Star Micronics USB Accessories -->
+    <usb-accessory manufacturer="Star Micronics" />
+    <usb-accessory manufacturer="STAR MICRONICS CO., LTD." />
+</resources>

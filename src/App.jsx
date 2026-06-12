@@ -34,9 +34,9 @@ const appId = 'sjs-pharmacy-live';
 const PHARMACY_NAME = "PHARM+ St. James' Settlement Community Pharmacy";
 const PHARMACY_NAME_ZH = "藥健同心聖雅各福群會社區藥房";
 const STAFF_PIN = "1234"; // Default security PIN
-const LOGO_PATH = "/logo.png"; // Path to your logo in the public folder
-const PRINTER_IP = '192.168.1.147'; // Star TSP100IV IP Address for LAN Fallback
+const LOGO_PATH = "/logo.png"; 
 
+// Only Tickets A to F are generated
 const SERVICES = [
   { id: 'A', name: 'Prescription Dispensing', nameZh: '處方配藥', icon: Ticket, color: 'bg-blue-600', hover: 'hover:bg-blue-700' },
   { id: 'B', name: 'Minor Ailment Management', nameZh: '小病小痛管理', icon: Stethoscope, color: 'bg-teal-600', hover: 'hover:bg-teal-700' },
@@ -46,6 +46,7 @@ const SERVICES = [
   { id: 'F', name: 'Health Screening Service', nameZh: '健康篩查服務', icon: HeartPulse, color: 'bg-indigo-600', hover: 'hover:bg-indigo-700' }
 ];
 
+// Expanded Pharmacist Panels
 const STATIONS = ['Counter 1', 'Counter 2', 'Room 3', 'Room 4', 'Reception 登記處', 'Function Room 活動室'];
 
 // --- HELPER FUNCTIONS ---
@@ -185,6 +186,7 @@ const LoginView = ({ setCurrentView, setIsStaffAuthenticated }) => {
   );
 };
 
+// Simplified Web Kiosk (Fallback only, uses browser print)
 const KioskView = ({ generateTicket }) => {
   const [printedTicket, setPrintedTicket] = useState(null);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -249,6 +251,7 @@ const KioskView = ({ generateTicket }) => {
         </div>
       </div>
 
+      {/* Browser CSS Print Format (A4 / standard) */}
       {printedTicket && (
         <div className="hidden print:block text-black text-center w-full mx-auto p-4 font-sans bg-white z-[9999] m-0">
           <div className="mb-4 text-center">
@@ -288,17 +291,19 @@ const MonitorView = ({ tickets, waitingTickets, lastCallEvent, isStarted, onStar
             const tNumber = (t.ticketNumber || t.id);
             const formattedTicket = tNumber.split('').join(' '); 
             
-            let cleanCounterZh = t.calledByCounter.replace('Counter', '').replace('Room', '').replace('Reception 登記處', '登記處').replace('Function Room 活動室', '活動室').trim();
-            let suffixZh = t.calledByCounter.includes('Counter') ? '號櫃位' : t.calledByCounter.includes('Room') ? '號房間' : '';
-            if(t.calledByCounter.includes('登記處')) { cleanCounterZh = ''; suffixZh = '登記處'; }
-            if(t.calledByCounter.includes('活動室')) { cleanCounterZh = ''; suffixZh = '活動室'; }
+            // Clean up the station name for speech
+            let cleanCounter = t.calledByCounter.replace('Counter', '').replace('Room', '').replace('登記處', '').replace('活動室', '').trim();
+            let suffixZh = '';
+            if (t.calledByCounter.includes('Counter')) suffixZh = '號櫃位';
+            else if (t.calledByCounter.includes('Room') && !t.calledByCounter.includes('Function')) suffixZh = '號房間';
+            else if (t.calledByCounter.includes('Reception')) { cleanCounter = '登記處'; suffixZh = ''; }
+            else if (t.calledByCounter.includes('Function')) { cleanCounter = '活動室'; suffixZh = ''; }
 
-            const msgZh = new SpeechSynthesisUtterance(`請 ${formattedTicket} 號客, 到 ${cleanCounterZh} ${suffixZh}。`);
+            const msgZh = new SpeechSynthesisUtterance(`請 ${formattedTicket} 號客, 到 ${cleanCounter} ${suffixZh}。`);
             msgZh.lang = 'zh-HK';
             msgZh.rate = 0.85;
             
-            const cleanCounterEn = t.calledByCounter.replace('登記處', '').replace('活動室', '').trim();
-            const msgEn = new SpeechSynthesisUtterance(`Ticket ${formattedTicket}, please proceed to ${cleanCounterEn}.`);
+            const msgEn = new SpeechSynthesisUtterance(`Ticket ${formattedTicket}, please proceed to ${t.calledByCounter.replace(/[\u4e00-\u9fa5]/g, '').trim()}.`);
             msgEn.lang = 'en-US';
             msgEn.rate = 0.85;
             
@@ -310,6 +315,14 @@ const MonitorView = ({ tickets, waitingTickets, lastCallEvent, isStarted, onStar
       return () => clearTimeout(timer);
     }
   }, [lastCallEvent.time, isStarted]); 
+
+  // Clean formatting for the massive TV Popup Text
+  const formatCounterForDisplay = (counterStr) => {
+    if (!counterStr) return '';
+    if (counterStr.includes('Reception')) return '登記處 Reception';
+    if (counterStr.includes('Function')) return '活動室 Function Room';
+    return counterStr.replace('Counter', '').replace('Room', '') + ' 號 ' + (counterStr.includes('Counter') ? '櫃位' : '房間');
+  };
 
   if (!isStarted) {
     return (
@@ -328,53 +341,45 @@ const MonitorView = ({ tickets, waitingTickets, lastCallEvent, isStarted, onStar
 
   return (
     <div className="min-h-[calc(100vh-64px)] bg-slate-900 text-white flex flex-col overflow-hidden print:hidden">
-      <div className="w-full bg-slate-800 border-b-4 border-slate-700 p-4 md:p-6 flex flex-col md:flex-row items-center justify-between gap-6 shrink-0 z-20 shadow-2xl">
-         <div className="flex items-center gap-4 md:gap-6">
-            <div className="bg-white rounded-3xl p-2 md:p-3 shadow-inner ring-4 ring-slate-700/50 shrink-0">
-               <img src={LOGO_PATH} alt="Logo" className="h-12 md:h-16 lg:h-20 object-contain mx-auto" onError={(e) => e.target.style.display='none'} />
-            </div>
+      <div className="w-full bg-slate-800 border-b-4 border-slate-700 p-6 md:p-8 flex flex-col md:flex-row items-center justify-between gap-8 shrink-0 z-20 shadow-2xl">
+         <div className="flex items-center gap-6 md:gap-10">
             <div className="flex flex-col text-left">
-               <h2 className="text-2xl md:text-4xl lg:text-5xl font-black text-slate-100 tracking-tight leading-none mb-1">{PHARMACY_NAME_ZH}</h2>
-               <h3 className="text-[10px] md:text-xs lg:text-sm font-bold text-slate-400 uppercase tracking-[0.2em] opacity-80">{PHARMACY_NAME}</h3>
+               <h2 className="text-3xl md:text-5xl lg:text-6xl font-black text-slate-100 tracking-tight leading-none mb-2">{PHARMACY_NAME_ZH}</h2>
+               <h3 className="text-xs md:text-sm lg:text-base font-bold text-slate-400 uppercase tracking-[0.2em] opacity-80">{PHARMACY_NAME}</h3>
             </div>
          </div>
-         <div className="flex flex-col items-center md:items-end shrink-0 mt-4 md:mt-0">
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-black text-yellow-500 tracking-[0.2em] uppercase mb-1 drop-shadow-lg text-center">現在叫號</h1>
-            <p className="text-slate-500 text-xs md:text-sm lg:text-base font-black tracking-[0.3em] uppercase opacity-40 text-center">Now Calling</p>
+         <div className="flex flex-col items-center md:items-end shrink-0">
+            <h1 className="text-5xl md:text-7xl font-black text-yellow-500 tracking-[0.2em] uppercase mb-1 drop-shadow-lg text-center">現在叫號</h1>
+            <p className="text-slate-500 text-sm md:text-xl font-black tracking-[0.3em] uppercase opacity-40 text-center">Now Calling</p>
          </div>
       </div>
-      
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden relative">
-        <div className="w-full lg:w-2/3 p-4 md:p-8 flex flex-col justify-center items-center border-b lg:border-b-0 lg:border-r-4 border-slate-700/50">
-          <div className={`transition-all duration-300 text-center flex justify-center items-center w-full ${flash ? 'scale-110 text-white drop-shadow-[0_0_80px_rgba(255,255,255,0.6)]' : 'text-white'}`}>
-            <div 
-              className="font-black leading-none tracking-tighter drop-shadow-2xl whitespace-nowrap" 
-              style={{ fontSize: 'clamp(6rem, 20vw, 35vh)' }}
-            >
+        <div className="w-full lg:w-[60%] p-8 flex flex-col justify-center items-center border-b lg:border-b-0 lg:border-r-4 border-slate-700/50">
+          <div className={`transition-all duration-300 text-center w-full flex justify-center items-center ${flash ? 'scale-110 text-white drop-shadow-[0_0_80px_rgba(255,255,255,0.6)]' : 'text-white'}`}>
+            <div className="font-black leading-none my-4 tracking-tighter drop-shadow-2xl" style={{ fontSize: 'clamp(8rem, 25vw, 35vh)' }}>
               {displayId}
             </div>
           </div>
           {currentTicket && currentTicket.calledByCounter && currentTicket.status === 'calling' && (
-            <div className="text-center animate-in fade-in slide-in-from-bottom-8 mt-6 md:mt-10">
-              <div className="inline-block bg-yellow-500 text-slate-900 px-8 py-4 md:px-16 md:py-6 rounded-full text-3xl md:text-5xl lg:text-6xl font-black shadow-[0_0_60px_rgba(234,179,8,0.4)] border-4 border-white/20">
-                {currentTicket.calledByCounter.replace('Counter', '').replace('Room', '').replace('Reception', '').replace('Function Room', '')} {currentTicket.calledByCounter.includes('Counter') ? '號櫃位' : currentTicket.calledByCounter.includes('Room') ? '號房間' : currentTicket.calledByCounter.includes('Reception') ? '登記處' : '活動室'}
+            <div className="text-center animate-in fade-in slide-in-from-bottom-8 mt-6 lg:mt-10">
+              <div className="inline-block bg-yellow-500 text-slate-900 px-10 py-4 md:px-20 md:py-6 rounded-full text-3xl md:text-6xl font-black shadow-[0_0_60px_rgba(234,179,8,0.4)] border-4 border-white/20 whitespace-nowrap">
+                {formatCounterForDisplay(currentTicket.calledByCounter)}
               </div>
             </div>
           )}
         </div>
-        
-        <div className="w-full lg:w-1/3 bg-slate-800/40 p-6 md:p-8 flex flex-col h-full">
-          <h2 className="text-3xl md:text-4xl font-black text-slate-300 mb-6 border-b-4 border-slate-700 pb-4 flex items-end gap-3 md:gap-4">
-            準備中 <span className="text-xl md:text-2xl opacity-40 font-black pb-1 tracking-widest uppercase">Preparing</span>
+        <div className="w-full lg:w-[40%] bg-slate-800/40 p-8 flex flex-col">
+          <h2 className="text-3xl lg:text-4xl font-black text-slate-300 mb-8 border-b-4 border-slate-700 pb-6 flex items-end gap-5">
+            準備中 <span className="text-lg lg:text-2xl opacity-40 font-black pb-1 tracking-widest uppercase">Preparing</span>
           </h2>
           <div className="overflow-y-auto flex-1 pr-2">
             {waitingTickets.length === 0 ? (
-              <div className="text-center text-slate-600 mt-16 md:mt-20 text-xl md:text-2xl font-black opacity-30 uppercase tracking-[0.2em]">暫無籌號<br/><span className="text-base md:text-lg block mt-2">No Waiting</span></div>
+              <div className="text-center text-slate-600 mt-20 text-xl lg:text-2xl font-black opacity-30 uppercase tracking-[0.2em]">暫無籌號 No Tickets</div>
             ) : (
-              <div className="grid grid-cols-2 gap-4 md:gap-6">
+              <div className="grid grid-cols-2 gap-4 lg:gap-6">
                 {[...waitingTickets].sort((a,b) => new Date(a.createdAt) - new Date(b.createdAt)).slice(0, 10).map((ticket) => (
-                  <div key={ticket.id} className="flex flex-col justify-center items-center bg-slate-700/40 py-6 md:py-8 rounded-3xl border-2 border-slate-600/30 shadow-xl">
-                    <span className="text-4xl md:text-5xl lg:text-6xl font-black text-slate-100 tracking-tighter">{ticket.ticketNumber || ticket.id}</span>
+                  <div key={ticket.id} className="flex justify-center items-center bg-slate-700/40 p-6 lg:p-8 rounded-3xl border-2 border-slate-600/30 shadow-xl">
+                    <span className="text-5xl lg:text-7xl font-black text-slate-100 tracking-tighter">{ticket.ticketNumber || ticket.id}</span>
                   </div>
                 ))}
               </div>
@@ -397,11 +402,11 @@ const PanelView = ({
   if (!panelRoom) {
     return (
       <div className="h-[calc(100vh-64px)] bg-gray-100 flex items-center justify-center p-4 print:hidden text-center">
-        <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-2xl text-center">
+        <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-4xl text-center">
           <h2 className="text-3xl font-bold text-gray-800 mb-8 text-center">藥劑師控制台 Pharmacist Panel</h2>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
             {STATIONS.map(station => (
-              <button key={station} onClick={() => setPanelRoom(station)} className="p-6 border-2 rounded-xl font-bold text-lg md:text-xl text-gray-700 hover:border-teal-500 hover:bg-teal-50 hover:text-teal-700 transition-all shadow-sm active:scale-95">{station}</button>
+              <button key={station} onClick={() => setPanelRoom(station)} className="p-8 border-2 rounded-xl font-bold text-2xl text-gray-700 hover:border-teal-500 hover:bg-teal-50 hover:text-teal-700 transition-all shadow-sm active:scale-95">{station}</button>
             ))}
           </div>
           <button onClick={() => { setIsStaffAuthenticated(false); setCurrentView('home'); }} className="mt-12 text-base font-medium text-gray-400 hover:text-red-500 flex items-center justify-center gap-2 mx-auto px-4 py-2"><Lock className="w-5 h-5" /> 登出系統 Log Out</button>
@@ -423,7 +428,7 @@ const PanelView = ({
             <h2 className="text-xl lg:text-3xl font-bold text-teal-700 flex items-center gap-3"><UserCheck className="w-8 h-8"/> {panelRoom}</h2>
             <button onClick={() => setPanelRoom(null)} className="text-gray-500 hover:text-red-600 text-sm font-medium flex items-center gap-1 bg-gray-50 px-3 py-2 rounded-lg"><LogOut className="w-4 h-4"/> 切換 Switch</button>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2 lg:gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 lg:gap-3">
             {SERVICES.map(service => {
               const next = [...waitingTickets].sort((a,b)=>new Date(a.createdAt)-new Date(b.createdAt)).find(t=>t.type===service.id);
               return (
@@ -546,81 +551,46 @@ const ReportsView = ({ tickets }) => {
       if (timeframe === 'month') return (now - tDate) <= 30 * 24 * 60 * 60 * 1000;
       return true;
     });
+    let waitTimes = []; let consultTimes = []; let serviceTimes = []; 
+    let completedCount = 0; let cancelledCount = 0;
     
-    let waitTimes = []; 
-    let consultTimes = [];
-    let serviceTimes = [];
-    let completedCount = 0; 
-    let cancelledCount = 0;
-    
-    // Station workload map
-    const counterDist = {};
-    STATIONS.forEach(s => counterDist[s] = 0);
-    
-    // Service popularity map
-    const serviceDist = {};
-    SERVICES.forEach(s => serviceDist[s.id] = 0);
-
     filtered.forEach(t => {
-      // Accumulate service popularity
-      if (t.type) {
-        serviceDist[t.type] = (serviceDist[t.type] || 0) + 1;
-      }
-
-      if (t.status === 'cancelled' || t.status === 'missed') {
-        cancelledCount++;
-      }
-      
+      if (t.status === 'cancelled' || t.status === 'missed') cancelledCount++;
       if (t.status === 'completed') {
         completedCount++;
-        
-        // Track workload per station
-        if (t.calledByCounter) {
-          counterDist[t.calledByCounter] = (counterDist[t.calledByCounter] || 0) + 1;
-        }
-
         const cAt = new Date(t.createdAt).getTime();
         const called = t.calledAt ? new Date(t.calledAt).getTime() : null;
-        const completed = t.completedAt ? new Date(t.completedAt).getTime() : null;
-        
+        const compAt = t.completedAt ? new Date(t.completedAt).getTime() : null;
         if (called) {
-           waitTimes.push(called - cAt);
-           if (completed) {
-             consultTimes.push(completed - called);
-             serviceTimes.push(completed - cAt);
-           }
+            waitTimes.push(called - cAt);
+            if(compAt) {
+                consultTimes.push(compAt - called);
+                serviceTimes.push(compAt - cAt);
+            }
         }
       }
     });
-
     const avg = (arr) => arr.length ? Math.floor(arr.reduce((a,b)=>a+b,0) / arr.length / 60000) : 0;
     
-    const total = filtered.length;
-    const completionRate = total > 0 ? Math.round((completedCount / total) * 100) : 0;
-    const cancellationRate = total > 0 ? Math.round((cancelledCount / total) * 100) : 0;
+    const dist = {}; const counterDist = {};
+    filtered.forEach(t => {
+        dist[t.type] = (dist[t.type] || 0) + 1;
+        if(t.calledByCounter) counterDist[t.calledByCounter] = (counterDist[t.calledByCounter] || 0) + 1;
+    });
 
+    const total = filtered.length;
     return { 
-      totalGenerated: total, 
-      completed: completedCount, 
-      cancelled: cancelledCount, 
-      completionRate,
-      cancellationRate,
-      avgWait: avg(waitTimes),
-      avgConsult: avg(consultTimes),
-      avgService: avg(serviceTimes),
-      counterDist,
-      serviceDist
+        totalGenerated: total, completed: completedCount, cancelled: cancelledCount, 
+        avgWait: avg(waitTimes), avgConsult: avg(consultTimes), avgService: avg(serviceTimes),
+        compRate: total ? Math.round(completedCount*100/total) : 0,
+        cancRate: total ? Math.round(cancelledCount*100/total) : 0,
+        dist, counterDist
     };
   }, [tickets, timeframe]);
   
-  const maxCounterCount = Math.max(...Object.values(stats.counterDist), 1);
-  const maxServiceCount = Math.max(...Object.values(stats.serviceDist), 1);
-
   return (
     <div className="h-auto min-h-[calc(100vh-64px)] bg-gray-100 p-4 md:p-8 print:hidden">
       <div className="max-w-6xl mx-auto space-y-6">
-        
-        {/* Header Block */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 rounded-2xl shadow-sm border border-gray-200">
           <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2 text-left"><BarChart3 className="w-6 h-6 text-blue-600"/> 數據分析 Dashboard</h1>
           <div className="flex bg-gray-100 p-1 rounded-lg self-stretch sm:self-auto">
@@ -630,88 +600,85 @@ const ReportsView = ({ tickets }) => {
           </div>
         </div>
 
-        {/* Top 3 Time KPIs */}
+        {/* TIME INSIGHTS */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm flex flex-col justify-center items-center text-center">
-            <div className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-2"><Timer className="w-4 h-4"/> 平均等待 Avg Wait</div>
-            <div className="flex items-baseline justify-center gap-1"><span className="text-5xl font-black text-blue-600">{stats.avgWait}</span><span className="text-gray-500 font-bold">分鐘 mins</span></div>
+            <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm flex flex-col justify-center items-center text-center">
+                <div className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">平均等待 Avg Wait</div>
+                <div className="text-3xl font-black text-sky-600">{stats.avgWait} <span className="text-sm text-gray-500 font-bold">分鐘 mins</span></div>
+            </div>
+            <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm flex flex-col justify-center items-center text-center">
+                <div className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">平均諮詢 Avg Consult</div>
+                <div className="text-3xl font-black text-teal-600">{stats.avgConsult} <span className="text-sm text-gray-500 font-bold">分鐘 mins</span></div>
+            </div>
+            <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm flex flex-col justify-center items-center text-center">
+                <div className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">平均總時間 Total Service</div>
+                <div className="text-3xl font-black text-indigo-600">{stats.avgService} <span className="text-sm text-gray-500 font-bold">分鐘 mins</span></div>
+            </div>
+        </div>
+
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm flex flex-col justify-center text-center">
+            <div className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-1">總籌號量 Total</div>
+            <div className="text-4xl font-black text-blue-900">{stats.totalGenerated}</div>
           </div>
-          <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm flex flex-col justify-center items-center text-center">
-            <div className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-2"><UserCheck className="w-4 h-4"/> 平均諮詢 Avg Consult</div>
-            <div className="flex items-baseline justify-center gap-1"><span className="text-5xl font-black text-teal-600">{stats.avgConsult}</span><span className="text-gray-500 font-bold">分鐘 mins</span></div>
+          <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm flex flex-col justify-center text-center">
+            <div className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-1">已完成 Completed</div>
+            <div className="text-4xl font-black text-green-600">{stats.completed}</div>
           </div>
-          <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm flex flex-col justify-center items-center text-center">
-            <div className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-2"><Clock className="w-4 h-4"/> 平均總時間 Avg Service</div>
-            <div className="flex items-baseline justify-center gap-1"><span className="text-5xl font-black text-indigo-600">{stats.avgService}</span><span className="text-gray-500 font-bold">分鐘 mins</span></div>
+          <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm flex flex-col justify-center text-center">
+            <div className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-1">完成率 Completion %</div>
+            <div className="text-4xl font-black text-emerald-600">{stats.compRate}%</div>
+          </div>
+          <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm flex flex-col justify-center text-center">
+            <div className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-1">取消/過號 No Show %</div>
+            <div className="text-4xl font-black text-red-500">{stats.cancRate}%</div>
           </div>
         </div>
 
-        {/* 4 Conversion & Status KPIs */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm flex flex-col justify-center text-center">
-            <div className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">總籌號量 Total</div>
-            <div className="text-3xl font-black text-gray-900">{stats.totalGenerated}</div>
-          </div>
-          <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm flex flex-col justify-center text-center">
-            <div className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">已完成 Completed</div>
-            <div className="text-3xl font-black text-green-600">{stats.completed}</div>
-          </div>
-          <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm flex flex-col justify-center text-center relative overflow-hidden">
-            <div className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">完成率 Completion %</div>
-            <div className="text-3xl font-black text-emerald-500">{stats.completionRate}%</div>
-            <div className="absolute bottom-0 left-0 h-1.5 bg-emerald-500" style={{ width: `${stats.completionRate}%` }}></div>
-          </div>
-          <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm flex flex-col justify-center text-center relative overflow-hidden">
-            <div className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">取消/過號 Cancellation %</div>
-            <div className="text-3xl font-black text-red-500">{stats.cancellationRate}%</div>
-            <div className="absolute bottom-0 left-0 h-1.5 bg-red-500" style={{ width: `${stats.cancellationRate}%` }}></div>
-          </div>
+        {/* WORKLOAD DISTRIBUTION GRAPHS */}
+        <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
+            <h3 className="text-lg font-bold text-gray-800 mb-6">各櫃位籌號處理量 Tickets Handled By Station</h3>
+            <div className="space-y-4">
+                {Object.keys(stats.counterDist).length === 0 ? <p className="text-gray-400 italic">No counter data for this period.</p> : null}
+                {Object.entries(stats.counterDist).sort((a,b)=>b[1]-a[1]).map(([station, count]) => {
+                    const max = Math.max(...Object.values(stats.counterDist), 1);
+                    const pct = (count / max) * 100;
+                    return (
+                        <div key={station} className="flex flex-col">
+                            <div className="flex justify-between mb-1">
+                                <span className="text-sm font-bold text-gray-700">{station}</span>
+                                <span className="text-sm font-black text-gray-900">{count}</span>
+                            </div>
+                            <div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden">
+                                <div className="bg-teal-500 h-3 rounded-full transition-all duration-1000" style={{ width: `${pct}%` }}></div>
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
         </div>
 
-        {/* Distribution Graphs */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-           {/* Service Distribution Graph */}
-           <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
-             <h3 className="text-lg font-bold text-gray-800 mb-6 flex items-center gap-2"><Info className="w-5 h-5 text-gray-400"/> 各項服務籌號量 Tickets by Service</h3>
-             <div className="space-y-4">
-               {SERVICES.map(s => {
-                 const count = stats.serviceDist[s.id] || 0;
-                 const percentage = maxServiceCount > 0 ? (count / maxServiceCount) * 100 : 0;
-                 return (
-                   <div key={s.id}>
-                     <div className="flex justify-between text-sm font-bold text-gray-700 mb-1">
-                       <span>{s.nameZh} ({s.id})</span>
-                       <span>{count}</span>
-                     </div>
-                     <div className="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden">
-                       <div className={`${s.color.replace('hover:', '')} h-full rounded-full transition-all duration-1000`} style={{width: `${percentage}%`}}></div>
-                     </div>
-                   </div>
-                 );
-               })}
-             </div>
-           </div>
-
-           {/* Counter Workload Graph */}
-           <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
-             <h3 className="text-lg font-bold text-gray-800 mb-6 flex items-center gap-2"><UserCheck className="w-5 h-5 text-gray-400"/> 各櫃位處理量 Tickets by Station</h3>
-             <div className="space-y-4">
-               {STATIONS.map(station => {
-                 const count = stats.counterDist[station] || 0;
-                 const width = maxCounterCount > 0 ? (count / maxCounterCount) * 100 : 0;
-                 return (
-                   <div key={station} className="flex items-center gap-4">
-                     <div className="w-32 text-sm font-bold text-gray-600 truncate text-right">{station}</div>
-                     <div className="flex-1 flex items-center gap-3">
-                       <div className="h-5 bg-teal-500 rounded-sm transition-all duration-1000" style={{width: `${width}%`, minWidth: count > 0 ? '4px' : '0'}}></div>
-                       <span className="text-sm font-bold text-gray-800">{count}</span>
-                     </div>
-                   </div>
-                 );
-               })}
-               {stats.totalGenerated === 0 && <div className="text-center text-gray-400 italic mt-10">No data available for selected timeframe.</div>}
-             </div>
-           </div>
+        <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
+            <h3 className="text-lg font-bold text-gray-800 mb-6">各項服務籌號量 Tickets By Service</h3>
+            <div className="space-y-4">
+                {Object.keys(stats.dist).length === 0 ? <p className="text-gray-400 italic">No service data for this period.</p> : null}
+                {SERVICES.map((s) => {
+                    const count = stats.dist[s.id] || 0;
+                    const max = Math.max(...Object.values(stats.dist), 1);
+                    const pct = (count / max) * 100;
+                    return (
+                        <div key={s.id} className="flex flex-col">
+                            <div className="flex justify-between mb-1">
+                                <span className="text-sm font-bold text-gray-700">{s.id} - {s.nameZh}</span>
+                                <span className="text-sm font-black text-gray-900">{count}</span>
+                            </div>
+                            <div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden">
+                                <div className={`${s.color} h-3 rounded-full transition-all duration-1000`} style={{ width: `${pct}%` }}></div>
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
         </div>
 
       </div>
@@ -771,6 +738,7 @@ export default function App() {
     return () => clearInterval(timer);
   }, []);
 
+  // Soft-clears stale UI states but actual DB reset is handled strictly on ticket generation
   useEffect(() => {
     if (!user || tickets.length === 0) return;
     const todayStr = currentTime.toDateString();
@@ -781,13 +749,10 @@ export default function App() {
         const finalMemo = t.memo ? `${t.memo} | [System] Auto-cleared` : `[System] Auto-cleared`;
         await setDoc(ticketRef, { ...t, status: 'cancelled', completedAt: new Date().toISOString(), memo: finalMemo });
       });
-      SERVICES.forEach(async (s) => {
-        const counterRef = doc(db, 'artifacts', appId, 'public', 'data', 'counters', s.id);
-        await setDoc(counterRef, { count: 0 });
-      });
     }
   }, [currentTime, user, tickets]);
 
+  // --- DATE-AWARE SMART TRANSACTION ---
   const generateTicket = async (serviceId) => {
     if (!user) return null;
     try {
@@ -796,12 +761,23 @@ export default function App() {
       const newNum = await runTransaction(db, async (transaction) => {
         const counterRef = doc(db, 'artifacts', appId, 'public', 'data', 'counters', serviceId);
         const counterDoc = await transaction.get(counterRef);
-        if (!counterDoc.exists()) {
-          transaction.set(counterRef, { count: 1 });
-          return 1;
+        
+        // Use strict YYYY-MM-DD local format
+        const d = new Date();
+        const todayStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        
+        let currentCount = 0;
+        
+        // If it was already printed today, keep counting. Otherwise it remains 0 (Auto-Reset)
+        if (counterDoc.exists()) {
+          const data = counterDoc.data();
+          if (data.date === todayStr) {
+            currentCount = data.count || 0;
+          }
         }
-        const newCount = (counterDoc.data().count || 0) + 1;
-        transaction.update(counterRef, { count: newCount });
+        
+        const newCount = currentCount + 1;
+        transaction.set(counterRef, { count: newCount, date: todayStr });
         return newCount;
       });
 

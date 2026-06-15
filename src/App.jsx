@@ -6,7 +6,7 @@ import {
   Timer, FileEdit, BarChart3, TrendingUp, Users, Database,
   Lock, KeyRound, AlertTriangle, Edit3, Menu, RotateCcw,
   Volume2, VolumeX, Trash2, Play, Calendar, History,
-  ShoppingBag, ClipboardList, HeartPulse, Laptop
+  ShoppingBag, ClipboardList, HeartPulse, Laptop, Maximize, Minimize
 } from 'lucide-react';
 
 // --- FIREBASE CLOUD SYNC IMPORTS ---
@@ -273,9 +273,32 @@ const MonitorView = ({ tickets, waitingTickets, lastCallEvent, isStarted, onStar
   const currentTicket = tickets.find(t => t.id === lastCallEvent.id);
   const displayId = currentTicket ? (currentTicket.ticketNumber || currentTicket.id) : '---';
   const [flash, setFlash] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   
   const ticketsRef = useRef(tickets);
   useEffect(() => { ticketsRef.current = tickets; }, [tickets]);
+
+  const toggleFullScreen = async () => {
+    try {
+      if (!document.fullscreenElement) {
+        await document.documentElement.requestFullscreen();
+      } else {
+        if (document.exitFullscreen) {
+          await document.exitFullscreen();
+        }
+      }
+    } catch (err) {
+      console.error("Error attempting to toggle full-screen mode:", err);
+    }
+  };
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
 
   useEffect(() => {
     if (lastCallEvent.time && isStarted) {
@@ -316,14 +339,6 @@ const MonitorView = ({ tickets, waitingTickets, lastCallEvent, isStarted, onStar
     }
   }, [lastCallEvent.time, isStarted]); 
 
-  // Clean formatting for the massive TV Popup Text
-  const formatCounterForDisplay = (counterStr) => {
-    if (!counterStr) return '';
-    if (counterStr.includes('Reception')) return '登記處 Reception';
-    if (counterStr.includes('Function')) return '活動室 Function Room';
-    return counterStr.replace('Counter', '').replace('Room', '') + ' 號 ' + (counterStr.includes('Counter') ? '櫃位' : '房間');
-  };
-
   if (!isStarted) {
     return (
       <div className="h-[calc(100vh-64px)] bg-slate-900 flex flex-col items-center justify-center p-6 print:hidden">
@@ -340,19 +355,35 @@ const MonitorView = ({ tickets, waitingTickets, lastCallEvent, isStarted, onStar
   }
 
   return (
-    <div className="min-h-[calc(100vh-64px)] bg-slate-900 text-white flex flex-col overflow-hidden print:hidden">
-      <div className="w-full bg-slate-800 border-b-4 border-slate-700 p-6 md:p-8 flex flex-col md:flex-row items-center justify-between gap-8 shrink-0 z-20 shadow-2xl">
-         <div className="flex items-center gap-6 md:gap-10">
-            <div className="flex flex-col text-left">
-               <h2 className="text-3xl md:text-5xl lg:text-6xl font-black text-slate-100 tracking-tight leading-none mb-2">{PHARMACY_NAME_ZH}</h2>
-               <h3 className="text-xs md:text-sm lg:text-base font-bold text-slate-400 uppercase tracking-[0.2em] opacity-80">{PHARMACY_NAME}</h3>
-            </div>
-         </div>
-         <div className="flex flex-col items-center md:items-end shrink-0">
-            <h1 className="text-5xl md:text-7xl font-black text-yellow-500 tracking-[0.2em] uppercase mb-1 drop-shadow-lg text-center">現在叫號</h1>
-            <p className="text-slate-500 text-sm md:text-xl font-black tracking-[0.3em] uppercase opacity-40 text-center">Now Calling</p>
-         </div>
-      </div>
+    <div className={isFullscreen ? "fixed inset-0 z-[100] bg-slate-900 text-white flex flex-col overflow-hidden" : "min-h-[calc(100vh-64px)] bg-slate-900 text-white flex flex-col overflow-hidden print:hidden"}>
+      
+      {/* Floating Fullscreen Toggle Button */}
+      <button 
+          onClick={toggleFullScreen} 
+          className="absolute top-6 right-6 z-[110] p-3 bg-slate-800/80 hover:bg-slate-700 rounded-full text-slate-300 hover:text-white transition-all shadow-xl backdrop-blur-sm border border-slate-600"
+          title={isFullscreen ? "Exit Full Screen" : "Full Screen"}
+      >
+          {isFullscreen ? <Minimize className="w-6 h-6" /> : <Maximize className="w-6 h-6" />}
+      </button>
+
+      {!isFullscreen && (
+        <div className="w-full bg-slate-800 border-b-4 border-slate-700 p-6 md:p-8 flex flex-col md:flex-row items-center justify-between gap-8 shrink-0 z-20 shadow-2xl pr-24">
+           <div className="flex items-center gap-6 md:gap-10">
+              <div className="bg-white rounded-3xl p-3 md:p-4 shadow-inner ring-4 ring-slate-700/50 shrink-0">
+                 <img src={LOGO_PATH} alt="Logo" className="h-16 md:h-24 lg:h-32 object-contain mx-auto" onError={(e) => e.target.style.display='none'} />
+              </div>
+              <div className="flex flex-col text-left">
+                 <h2 className="text-3xl md:text-5xl lg:text-6xl font-black text-slate-100 tracking-tight leading-none mb-2">{PHARMACY_NAME_ZH}</h2>
+                 <h3 className="text-xs md:text-sm lg:text-base font-bold text-slate-400 uppercase tracking-[0.2em] opacity-80">{PHARMACY_NAME}</h3>
+              </div>
+           </div>
+           <div className="flex flex-col items-center md:items-end shrink-0">
+              <h1 className="text-5xl md:text-7xl font-black text-yellow-500 tracking-[0.2em] uppercase mb-1 drop-shadow-lg text-center">現在叫號</h1>
+              <p className="text-slate-500 text-sm md:text-xl font-black tracking-[0.3em] uppercase opacity-40 text-center">Now Calling</p>
+           </div>
+        </div>
+      )}
+
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden relative">
         <div className="w-full lg:w-[60%] p-8 flex flex-col justify-center items-center border-b lg:border-b-0 lg:border-r-4 border-slate-700/50">
           <div className={`transition-all duration-300 text-center w-full flex justify-center items-center ${flash ? 'scale-110 text-white drop-shadow-[0_0_80px_rgba(255,255,255,0.6)]' : 'text-white'}`}>
@@ -369,7 +400,7 @@ const MonitorView = ({ tickets, waitingTickets, lastCallEvent, isStarted, onStar
           )}
         </div>
         <div className="w-full lg:w-[40%] bg-slate-800/40 p-8 flex flex-col">
-          <h2 className="text-3xl lg:text-4xl font-black text-slate-300 mb-8 border-b-4 border-slate-700 pb-6 flex items-end gap-5">
+          <h2 className="text-3xl lg:text-4xl font-black text-slate-300 mb-8 border-b-4 border-slate-700 pb-6 flex items-end gap-5 pr-16">
             準備中 <span className="text-lg lg:text-2xl opacity-40 font-black pb-1 tracking-widest uppercase">Preparing</span>
           </h2>
           <div className="overflow-y-auto flex-1 pr-2">
@@ -393,7 +424,7 @@ const MonitorView = ({ tickets, waitingTickets, lastCallEvent, isStarted, onStar
 
 const PanelView = ({ 
   panelRoom, setPanelRoom, waitingTickets, activeTickets, completedTickets,
-  queueSortBy, setQueueSortBy, updateTicketStatus, 
+  queueSortBy, setQueueSortBy, updateTicketStatus, onTransferTicket,
   setMemoModal, setReturnModal, setDeleteModal, 
   currentTime, setIsStaffAuthenticated, setCurrentView 
 }) => {
@@ -472,7 +503,12 @@ const PanelView = ({
                           <button onClick={()=>updateTicketStatus(ticket.id, 'missed')} className="bg-red-50 border border-red-200 text-red-600 font-bold px-4 py-3 rounded-lg hover:bg-red-100 flex-1 sm:flex-none">過號 Miss</button>
                         </>
                       ) : (
-                        <button onClick={()=>updateTicketStatus(ticket.id, 'completed')} className="bg-green-600 text-white font-bold px-8 py-3 rounded-lg hover:bg-green-700 w-full xl:w-auto shadow-sm active:scale-95 flex items-center justify-center gap-2"><CheckCircle className="w-5 h-5"/> 完成服務 Complete</button>
+                        <>
+                          {ticket.type === 'F' && (
+                            <button onClick={()=>onTransferTicket(ticket.id)} className="bg-purple-600 text-white font-bold px-6 py-3 rounded-lg hover:bg-purple-700 w-full xl:w-auto shadow-sm active:scale-95 flex items-center justify-center gap-2"><UserCheck className="w-5 h-5"/> 轉交藥劑師 Transfer</button>
+                          )}
+                          <button onClick={()=>updateTicketStatus(ticket.id, 'completed')} className="bg-green-600 text-white font-bold px-8 py-3 rounded-lg hover:bg-green-700 w-full xl:w-auto shadow-sm active:scale-95 flex items-center justify-center gap-2"><CheckCircle className="w-5 h-5"/> 完成服務 Complete</button>
+                        </>
                       )}
                     </div>
                   </div>
@@ -857,6 +893,21 @@ export default function App() {
     setDeleteModal(null);
   };
 
+  const handleTransferTicket = async (ticketId) => {
+    if (!user) return;
+    const t = tickets.find(t => t.id === ticketId);
+    if (!t) return;
+    const finalMemo = t.memo ? `${t.memo} | [轉交] 等待見藥劑師` : `[轉交] 等待見藥劑師`;
+    const ticketRef = doc(db, 'artifacts', appId, 'public', 'data', 'tickets', ticketId);
+    await setDoc(ticketRef, { 
+      ...t, 
+      status: 'waiting', 
+      calledByCounter: null, 
+      memo: finalMemo, 
+      isReturned: true 
+    });
+  };
+
   const waitingTickets = tickets.filter(t => t.status === 'waiting');
   const activeTickets = tickets.filter(t => ['calling', 'arrived'].includes(t.status));
   const completedTickets = tickets.filter(t => ['completed', 'missed', 'cancelled'].includes(t.status));
@@ -867,7 +918,7 @@ export default function App() {
         <div className="flex items-center gap-2 md:gap-3 cursor-pointer" onClick={() => setCurrentView('home')}>
           <img src={LOGO_PATH} alt="Logo" className="h-10 md:h-12 w-auto object-contain drop-shadow-sm" onError={(e) => e.target.style.display='none'} />
           <div className="bg-teal-600 p-1.5 md:p-2 rounded-lg hidden sm:block"><Ticket className="w-5 h-5 text-white" /></div>
-          <span className="font-bold text-lg md:text-xl text-gray-800 truncate tracking-tight">SJS 排隊系統 Queue <span className="text-gray-400 font-normal text-xs ml-2">v1.5.0</span></span>
+          <span className="font-bold text-lg md:text-xl text-gray-800 truncate tracking-tight">SJS 排隊系統 Queue <span className="text-gray-400 font-normal text-xs ml-2">v1.6.0</span></span>
         </div>
         <button className="md:hidden p-2 text-gray-600" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}><Menu className="w-6 h-6" /></button>
         <div className="hidden md:flex items-center bg-gray-100 p-1 rounded-lg gap-1">
@@ -888,7 +939,7 @@ export default function App() {
         {currentView === 'login' && <LoginView setCurrentView={setCurrentView} setIsStaffAuthenticated={setIsStaffAuthenticated} />}
         {currentView === 'kiosk' && <KioskView generateTicket={generateTicket} />}
         {currentView === 'monitor' && <MonitorView tickets={tickets} waitingTickets={waitingTickets.filter(t => new Date(t.createdAt).toDateString() === currentTime.toDateString())} lastCallEvent={lastCallEvent} isStarted={isMonitorStarted} onStart={() => setIsMonitorStarted(true)} currentTime={currentTime} />}
-        {currentView === 'panel' && <PanelView panelRoom={panelRoom} setPanelRoom={setPanelRoom} waitingTickets={waitingTickets.filter(t => new Date(t.createdAt).toDateString() === currentTime.toDateString())} activeTickets={activeTickets.filter(t => new Date(t.createdAt).toDateString() === currentTime.toDateString())} completedTickets={completedTickets.filter(t => new Date(t.createdAt).toDateString() === currentTime.toDateString())} queueSortBy={queueSortBy} setQueueSortBy={setQueueSortBy} updateTicketStatus={updateTicketStatus} setMemoModal={setMemoModal} setReturnModal={setReturnModal} setDeleteModal={setDeleteModal} currentTime={currentTime} setIsStaffAuthenticated={setIsStaffAuthenticated} setCurrentView={setCurrentView} />}
+        {currentView === 'panel' && <PanelView panelRoom={panelRoom} setPanelRoom={setPanelRoom} waitingTickets={waitingTickets.filter(t => new Date(t.createdAt).toDateString() === currentTime.toDateString())} activeTickets={activeTickets.filter(t => new Date(t.createdAt).toDateString() === currentTime.toDateString())} completedTickets={completedTickets.filter(t => new Date(t.createdAt).toDateString() === currentTime.toDateString())} queueSortBy={queueSortBy} setQueueSortBy={setQueueSortBy} updateTicketStatus={updateTicketStatus} onTransferTicket={handleTransferTicket} setMemoModal={setMemoModal} setReturnModal={setReturnModal} setDeleteModal={setDeleteModal} currentTime={currentTime} setIsStaffAuthenticated={setIsStaffAuthenticated} setCurrentView={setCurrentView} />}
         {currentView === 'reports' && <ReportsView tickets={tickets} />}
       </main>
       {memoModal && <MemoDialog memoModal={memoModal} onClose={() => setMemoModal(null)} onSave={updateTicketMemo} />}

@@ -221,8 +221,8 @@ const KioskView = ({ generateTicket }) => {
       <div className="min-h-[calc(100vh-64px)] bg-gray-100 flex flex-col items-center justify-center p-4 md:p-6 print:hidden">
         <div className="max-w-4xl w-full bg-white rounded-3xl shadow-2xl overflow-hidden relative flex flex-col max-h-full">
           <div className="bg-blue-900 p-6 md:p-8 text-center text-white flex flex-col items-center border-b-8 border-blue-600/30 shrink-0">
-            <h1 className="text-3xl md:text-5xl font-bold mb-2">Web Fallback Kiosk</h1>
-            <p className="text-blue-200 mt-1">Please use the Android Tablet for actual USB Thermal Printing.</p>
+            <h1 className="text-3xl md:text-5xl font-bold mb-2">歡迎光臨 Welcome</h1>
+            <p className="text-blue-200 mt-1 text-lg">請選擇服務以領取籌號 / Please select a service</p>
           </div>
           <div className="p-4 md:p-8 grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 overflow-y-auto">
             {SERVICES.map(service => (

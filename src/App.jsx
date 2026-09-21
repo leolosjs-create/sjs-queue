@@ -6,7 +6,7 @@ import {
   Timer, FileEdit, BarChart3, TrendingUp, Users, Database,
   Lock, KeyRound, AlertTriangle, Edit3, Menu, RotateCcw,
   Volume2, VolumeX, Trash2, Play, Calendar, History,
-  ShoppingBag, ClipboardList, HeartPulse, Laptop, Maximize, Minimize
+  ShoppingBag, ClipboardList, HeartPulse, Laptop, Maximize, Minimize, Store
 } from 'lucide-react';
 
 // --- FIREBASE CLOUD SYNC IMPORTS ---
@@ -36,14 +36,15 @@ const PHARMACY_NAME_ZH = "藥健同心聖雅各福群會社區藥房";
 const STAFF_PIN = "1234"; // Default security PIN
 const LOGO_PATH = "/logo.png"; 
 
-// Only Tickets A to F are generated
+// Only Tickets A to G are generated
 const SERVICES = [
   { id: 'A', name: 'Prescription Dispensing', nameZh: '處方配藥', icon: Ticket, color: 'bg-blue-600', hover: 'hover:bg-blue-700' },
   { id: 'B', name: 'Minor Ailment Management', nameZh: '小病小痛管理', icon: Stethoscope, color: 'bg-teal-600', hover: 'hover:bg-teal-700' },
   { id: 'C', name: 'Travel / OTC Medication', nameZh: '購買平安藥/非處方藥', icon: ShoppingBag, color: 'bg-purple-600', hover: 'hover:bg-purple-700' },
   { id: 'D', name: 'Pharmacist Consultation', nameZh: '藥劑師諮詢', icon: UserCheck, color: 'bg-orange-500', hover: 'hover:bg-orange-600' },
   { id: 'E', name: 'Medication Management Service', nameZh: '藥物管理服務', icon: ClipboardList, color: 'bg-pink-600', hover: 'hover:bg-pink-700' },
-  { id: 'F', name: 'Health Screening Service', nameZh: '健康篩查服務', icon: HeartPulse, color: 'bg-indigo-600', hover: 'hover:bg-indigo-700' }
+  { id: 'F', name: 'Health Screening Service', nameZh: '健康篩查服務', icon: HeartPulse, color: 'bg-indigo-600', hover: 'hover:bg-indigo-700' },
+  { id: 'G', name: 'Community Pharmacy Program (CPP)', nameZh: '社區藥房計劃', icon: Store, color: 'bg-cyan-600', hover: 'hover:bg-cyan-700' }
 ];
 
 // Expanded Pharmacist Panels
@@ -339,6 +340,14 @@ const MonitorView = ({ tickets, waitingTickets, lastCallEvent, isStarted, onStar
     }
   }, [lastCallEvent.time, isStarted]); 
 
+  // Clean formatting for the massive TV Popup Text
+  const formatCounterForDisplay = (counterStr) => {
+    if (!counterStr) return '';
+    if (counterStr.includes('Reception')) return '登記處 Reception';
+    if (counterStr.includes('Function')) return '活動室 Function Room';
+    return counterStr.replace('Counter', '').replace('Room', '') + ' 號 ' + (counterStr.includes('Counter') ? '櫃位' : '房間');
+  };
+
   if (!isStarted) {
     return (
       <div className="h-[calc(100vh-64px)] bg-slate-900 flex flex-col items-center justify-center p-6 print:hidden">
@@ -459,7 +468,7 @@ const PanelView = ({
             <h2 className="text-xl lg:text-3xl font-bold text-teal-700 flex items-center gap-3"><UserCheck className="w-8 h-8"/> {panelRoom}</h2>
             <button onClick={() => setPanelRoom(null)} className="text-gray-500 hover:text-red-600 text-sm font-medium flex items-center gap-1 bg-gray-50 px-3 py-2 rounded-lg"><LogOut className="w-4 h-4"/> 切換 Switch</button>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 lg:gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-2 lg:gap-3">
             {SERVICES.map(service => {
               const next = [...waitingTickets].sort((a,b)=>new Date(a.createdAt)-new Date(b.createdAt)).find(t=>t.type===service.id);
               return (
@@ -918,7 +927,7 @@ export default function App() {
         <div className="flex items-center gap-2 md:gap-3 cursor-pointer" onClick={() => setCurrentView('home')}>
           <img src={LOGO_PATH} alt="Logo" className="h-10 md:h-12 w-auto object-contain drop-shadow-sm" onError={(e) => e.target.style.display='none'} />
           <div className="bg-teal-600 p-1.5 md:p-2 rounded-lg hidden sm:block"><Ticket className="w-5 h-5 text-white" /></div>
-          <span className="font-bold text-lg md:text-xl text-gray-800 truncate tracking-tight">SJS 排隊系統 Queue <span className="text-gray-400 font-normal text-xs ml-2">v1.6.0</span></span>
+          <span className="font-bold text-lg md:text-xl text-gray-800 truncate tracking-tight">SJS 排隊系統 Queue <span className="text-gray-400 font-normal text-xs ml-2">v1.6.1</span></span>
         </div>
         <button className="md:hidden p-2 text-gray-600" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}><Menu className="w-6 h-6" /></button>
         <div className="hidden md:flex items-center bg-gray-100 p-1 rounded-lg gap-1">
